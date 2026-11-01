@@ -61,6 +61,18 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .hide{display:none!important}
 .legend{font-size:.9rem;color:var(--muted)}
+
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.slot .sl{font-weight:600;font-size:.95rem;flex:1 1 180px}
+.slot .pick{display:inline-flex;align-items:center;border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:.9rem;cursor:pointer}
+.slot .pick input{display:none}
+.slot ul{list-style:none;margin:0;padding:0;flex-basis:100%;display:flex;flex-direction:column;gap:4px}
+.slot li{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;color:var(--muted);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
+.slot li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot li button{border:0;background:none;color:var(--muted);cursor:pointer}
+.sent{background:var(--accent-soft);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.sent b{color:var(--accent)}
 @media (max-width:560px){.grid{grid-template-columns:1fr}.f.full{grid-column:auto}}
 </style>
 </head>
@@ -72,8 +84,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 </header>
 
 <div class="notice">
-  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。填完後按下方「產生回覆內容」，再「複製」貼到 LINE 或 Email 傳給您的租寓承辦人即可。<br>
-  <b>隱私說明：</b>本頁不會把資料上傳到任何伺服器，內容只存在您這台裝置的瀏覽器裡（中途關掉頁面也會自動保留草稿）。
+  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。文件可以在最後一區直接上傳，填完按下方「送出給承辦人」即可。<br>
+  <b>隱私說明：</b>送出後，資料與文件只會存進租寓公司的 Google 雲端硬碟，僅承辦同仁可以查看。填寫途中關掉頁面，已填的文字會自動保留（上傳的檔案需重新選擇）。
 </div>
 
 <form id="form" novalidate></form>
@@ -81,8 +93,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 <div id="errors"><b>還有幾個必填欄位沒完成：</b><ul></ul></div>
 
 <section class="card" id="result">
-  <h2>回覆內容</h2>
-  <p class="sub">請按「複製內容」，貼到 LINE 或 Email 傳給承辦人。身分證、權狀等文件請另外拍照傳送。</p>
+  <div class="sent" id="sentMsg"></div>
+  <h2>您填寫的內容</h2>
+  <p class="sub">備份用：如果需要，也可以按「複製內容」貼到 LINE 傳給承辦人。</p>
   <textarea id="out" readonly></textarea>
   <div class="actions">
     <button type="button" class="btn pri" id="copy">複製內容</button>
@@ -95,7 +108,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
   <span class="prog" id="prog"></span>
   <span style="display:flex;gap:8px">
     <button type="button" class="btn sec small" id="clear">清除重填</button>
-    <button type="button" class="btn pri" id="gen">產生回覆內容</button>
+    <button type="button" class="btn pri" id="gen">送出給承辦人</button>
   </span>
 </div></div>
 
@@ -199,8 +212,8 @@ const S=[
   {k:'furniture',l:'現有家具處理方式',t:'radio',o:['可提供家具','可換現況家具','現況出租','可丟棄','其他'],full:1},
   {k:'notary',l:'是否需要辦理公證',t:'radio',o:YN},
   {k:'tax',l:'房客可報稅',t:'radio',o:CAN,h:'依政府規定合約上須同意，這裡是了解您的真實想法'},
-  {k:'household',l:'房客可遷入戶籍',t:'radio',o:CAN},
-  {k:'subsidy',l:'房客可申請租屋補助',t:'radio',o:CAN},
+  {k:'household',l:'房客可遷入戶籍',t:'radio',o:CAN,h:'依政府規定合約上須同意，這裡是了解您的真實想法'},
+  {k:'subsidy',l:'房客可申請租屋補助',t:'radio',o:CAN,h:'依政府規定合約上須同意，這裡是了解您的真實想法'},
   {k:'cleanFee',l:'清潔費',t:'radio',o:['無','固定金額','依帳單繳納']},
   {k:'cleanAmt',l:'清潔費金額／頻率',t:'text',when:f=>f.cleanFee&&f.cleanFee!=='無'},
   {k:'guard',l:'管理員',t:'radio',o:['24 小時','日間','無','其他']},
@@ -226,9 +239,9 @@ const S=[
   {k:'keys',l:'鑰匙交付',t:'text',full:1,h:'可交付幾副、預計如何交付（例：請家人轉交、放管理室）'}
  ]},
  {id:'s7',no:'7',title:'簽約文件與備註',sub:'合約準備好後，我們會透過 LINE 傳送線上簽署連結給您。',fields:[
-  {k:'docs',l:'以下文件請拍照或掃描另外傳給承辦人，已傳送的請打勾',t:'check',full:1,o:[
-    '身分證正反面影本（必要）','房屋權狀影本','建物第一類謄本','最新房屋稅單','存摺封面影本',
-    '近期水費、電費、瓦斯費帳單','車位權狀或分管協議（有車位才需要）','公寓大廈規約／管委會規定（如有）']},
+  {k:'uploads',l:'上傳文件',t:'files',full:1,h:'可直接拍照或選擇照片／PDF，每一項可放多個檔案。不方便上傳的，之後用 LINE 傳給承辦人也可以。',o:[
+    '身分證正反面（必要）','房屋權狀','建物第一類謄本','最新房屋稅單','存摺封面',
+    '近期水費、電費、瓦斯費帳單','車位權狀或分管協議','公寓大廈規約／管委會規定','其他文件']},
   {k:'memo',l:'其他想告訴我們的事',t:'textarea',full:1}
  ]}
 ];
@@ -266,6 +279,8 @@ function fieldHTML(f){
   else if(f.t==='radio'||f.t==='check'){
     const ty=f.t==='radio'?'radio':'checkbox';
     ctl=`<div class="opts" id="${f.k}">${f.o.map(o=>`<label><input type="${ty}" name="${f.k}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;
+  } else if(f.t==='files'){
+    return `<div class="f full" data-k="${f.k}"><label class="l">${esc(f.l)}</label>${hint}<div class="slots">${f.o.map((o,i)=>`<div class="slot" data-slot="${i}"><span class="sl">${esc(o)}</span><label class="pick">＋ 選擇檔案<input type="file" multiple accept="image/*,application/pdf" data-slot="${i}"></label><ul></ul></div>`).join('')}</div></div>`;
   } else if(f.t==='rep'){
     return `<div class="rep f" data-k="${f.k}"><label class="l">${esc(f.l)}${req}</label>${hint}
       <div class="rows"></div><div><button type="button" class="btn sec small" data-add="${f.k}">＋ 新增一列</button></div>
@@ -275,6 +290,21 @@ function fieldHTML(f){
 }
 form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('');
 
+const UP={}; // slot index -> File[]（檔案不會存進草稿）
+const FSLOTS=S.flatMap(s=>s.fields).find(f=>f.t==='files').o;
+function renderSlot(i){
+  const ul=form.querySelector(`.slot[data-slot="${i}"] ul`);
+  ul.innerHTML=(UP[i]||[]).map((f,j)=>`<li><span>${esc(f.name)}（${(f.size/1048576).toFixed(1)} MB）</span><button type="button" data-rm="${i}:${j}" aria-label="移除">✕</button></li>`).join('');
+}
+form.addEventListener('change',e=>{
+  const i=e.target.dataset&&e.target.dataset.slot; if(i==null||e.target.type!=='file')return;
+  for(const f of e.target.files){ if(f.size>20*1048576){alert(f.name+' 超過 20MB，請改用 LINE 傳送');continue;} (UP[i]=UP[i]||[]).push(f); }
+  e.target.value=''; renderSlot(i);
+});
+form.addEventListener('click',e=>{
+  const r=e.target.dataset&&e.target.dataset.rm; if(!r)return;
+  const [i,j]=r.split(':').map(Number); UP[i].splice(j,1); renderSlot(i);
+});
 const ALL=S.flatMap(s=>s.fields.map(f=>({...f,sec:s})));
 const REP=Object.fromEntries(ALL.filter(f=>f.t==='rep').map(f=>[f.k,f]));
 function addRow(k,vals={}){
@@ -293,7 +323,8 @@ function read(){
   for(const f of ALL){
     if(f.t==='rep'){
       d[f.k]=[...form.querySelectorAll(`[data-k="${f.k}"] .rep-row`)].map(r=>Object.fromEntries([...r.querySelectorAll('input')].map(i=>[i.dataset.c,i.value.trim()]))).filter(o=>Object.values(o).some(Boolean));
-    } else if(f.t==='radio'){ const c=form.querySelector(`input[name="${f.k}"]:checked`); d[f.k]=c?c.value:''; }
+    } else if(f.t==='files'){ d[f.k]=FSLOTS.flatMap((o,i)=>(UP[i]||[]).map(x=>o+'：'+x.name)); }
+    else if(f.t==='radio'){ const c=form.querySelector(`input[name="${f.k}"]:checked`); d[f.k]=c?c.value:''; }
     else if(f.t==='check'){ d[f.k]=[...form.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i=>i.value); }
     else d[f.k]=(form.elements[f.k].value||'').trim();
   }
@@ -302,6 +333,7 @@ function read(){
 function write(d){
   for(const f of ALL){
     const v=d[f.k]; if(v==null) continue;
+    if(f.t==='files') continue;
     if(f.t==='rep'){ form.querySelector(`[data-k="${f.k}"] .rows`).innerHTML=''; v.forEach(r=>addRow(f.k,r)); }
     else if(f.t==='radio'||f.t==='check'){ form.querySelectorAll(`input[name="${f.k}"]`).forEach(i=>i.checked=f.t==='radio'?i.value===v:has(v,i.value)); }
     else form.elements[f.k].value=v;
@@ -319,7 +351,7 @@ function refresh(){
   $('#prog').textContent=`必填完成 ${done} / ${tot}`;
   return d;
 }
-let t;function save(){clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(read()));}catch(e){}},300);}
+let t;function save(){clearTimeout(t);t=setTimeout(()=>{try{const d=read();delete d.uploads;localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}},300);}
 form.addEventListener('input',()=>{refresh();save();});
 form.addEventListener('change',()=>{refresh();save();});
 
@@ -357,19 +389,64 @@ function build(d){
     }
     if(sec.length) lines.push(`■ ${s.no}. ${s.title}`,...sec,'');
   }
-  const miss=S[6].fields.find(f=>f.k==='docs').o.filter(o=>!has(d.docs,o));
-  if(miss.length) lines.push('※ 尚未傳送的文件：'+miss.join('、'));
+  const miss=FSLOTS.filter((o,i)=>!(UP[i]||[]).length&&!/其他/.test(o));
+  if(miss.length) lines.push('※ 未在表單上傳的文件（請另用 LINE 傳送）：'+miss.join('、'));
   return lines.join('\n');
 }
-$('#gen').onclick=()=>{
-  const d=refresh(),errs=validate(d),box=$('#errors');
-  if(errs.length){
-    box.style.display='block';box.querySelector('ul').innerHTML=errs.map(e=>`<li>${esc(e[1])}</li>`).join('');
-    $('#result').style.display='none';
-    form.querySelector(`[data-k="${errs[0][0].k}"]`).scrollIntoView({behavior:'smooth',block:'center'});
-    return;
+/* ---------- 送出：資料與檔案存到租寓 Google Drive ---------- */
+const GAS_URL='https://script.google.com/macros/s/AKfycbyTwJTF2MaeuRl5T_s9MEkEnOE-cIV6YXbtIm3Q_yWtFvwGfoktDEg-Xtb9tYKRz2v6/exec';
+let sending=false, sentOnce=false;
+async function gas(payload){
+  const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload)});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'上傳失敗'); return j;
+}
+async function toPayload(file){
+  let blob=file,name=file.name,mime=file.type||'application/octet-stream';
+  if(/^image\/(jpeg|png|webp)$/.test(mime)&&file.size>700*1024){
+    try{
+      const bmp=await createImageBitmap(file),k=Math.min(1,2400/Math.max(bmp.width,bmp.height));
+      const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+      c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+      const out=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));
+      if(out&&out.size<file.size){blob=out;mime='image/jpeg';name=name.replace(/\.[^.]+$/,'')+'.jpg';}
+    }catch(e){}
   }
-  box.style.display='none';$('#out').value=build(d);$('#result').style.display='block';
+  const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob);});
+  return {data,mime,filename:name};
+}
+function showErrors(errs){
+  const box=$('#errors');
+  box.style.display='block';box.querySelector('ul').innerHTML=errs.map(e=>`<li>${esc(e[1])}</li>`).join('');
+  $('#result').style.display='none';
+  form.querySelector(`[data-k="${errs[0][0].k}"]`).scrollIntoView({behavior:'smooth',block:'center'});
+}
+$('#gen').onclick=async()=>{
+  if(sending)return;
+  const d=refresh(),errs=validate(d);
+  if(errs.length) return showErrors(errs);
+  $('#errors').style.display='none';
+  const summary=build(d); $('#out').value=summary;
+  if(sentOnce&&!confirm('這份資料已經送出過，確定要再送一次嗎？'))return;
+  const btn=$('#gen'),prog=$('#prog'); sending=true; btn.disabled=true;
+  const jobs=FSLOTS.flatMap((o,i)=>(UP[i]||[]).map(f=>[o,f]));
+  const fails=[]; let msg='';
+  try{
+    prog.textContent='送出資料中…';
+    const init=await gas({action:'init',name:d.name,summary});
+    for(let n=0;n<jobs.length;n++){
+      const [label,f]=jobs[n]; prog.textContent=`上傳檔案 ${n+1} / ${jobs.length}…`;
+      try{ await gas({action:'file',folderId:init.folderId,label:label.replace(/（.*?）/g,''),...(await toPayload(f))}); }
+      catch(e){ fails.push(f.name); }
+    }
+    fetch('/api/sign-form-notify',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:d.name,address:[d.city,d.dist,d.addr].filter(Boolean).join(''),fileCount:jobs.length-fails.length,folderUrl:init.folderUrl})}).catch(()=>{});
+    sentOnce=true;
+    msg=`<b>已送出 ✓</b> 承辦人已收到您的資料${jobs.length?`與 ${jobs.length-fails.length} 個檔案`:''}，謝謝您！`+
+      (fails.length?`<br>以下檔案上傳失敗，請改用 LINE 傳給承辦人：${fails.map(esc).join('、')}`:'');
+  }catch(e){
+    msg=`<b>送出失敗</b>（${esc(e.message||e)}）。請稍後再試，或按下方「複製內容」貼到 LINE 傳給承辦人，文件也請一併用 LINE 傳送。`;
+  }finally{ sending=false; btn.disabled=false; refresh(); }
+  $('#sentMsg').innerHTML=msg; $('#result').style.display='block';
   $('#result').scrollIntoView({behavior:'smooth'});
 };
 $('#copy').onclick=async()=>{
@@ -387,7 +464,7 @@ $('#clear').onclick=()=>{
   if(!$('#clear').dataset.arm){$('#clear').dataset.arm='1';$('#clear').textContent='再按一次確認清除';setTimeout(()=>{delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';},3000);return;}
   try{localStorage.removeItem(KEY);}catch(e){}
   form.reset();form.querySelectorAll('.rows').forEach(r=>r.innerHTML='');init(true);
-  delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';$('#result').style.display='none';$('#errors').style.display='none';
+  delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';$('#result').style.display='none';$('#errors').style.display='none';Object.keys(UP).forEach(k=>{UP[k]=[];renderSlot(k);});sentOnce=false;
 };
 
 /* ---------- init ---------- */
