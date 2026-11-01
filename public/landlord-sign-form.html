@@ -68,7 +68,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 <div class="wrap">
 <header>
   <h1>租寓 房屋代管簽約資料表</h1>
-  <p>屋主您好，為了在您回國前先備妥代管合約，請協助填寫以下資料。大約需要 15–20 分鐘。</p>
+  <p>屋主您好，為了先備妥代管合約，請協助填寫以下資料。大約需要 15–20 分鐘。</p>
 </header>
 
 <div class="notice">
@@ -123,10 +123,10 @@ const S=[
   {k:'community',l:'社區名稱',t:'text',h:'無社區名稱可留空'},
   {k:'taxNo',l:'房屋稅籍編號',t:'text',h:'房屋稅單上可找到'},
   {k:'floors',l:'整棟總樓層',t:'number',h:'整棟建物共幾層'},
-  {k:'area',l:'權狀坪數',t:'number',h:'權狀上的建物面積（坪）'},
-  {k:'rooms',l:'房數',t:'number'},{k:'halls',l:'廳數',t:'number'},{k:'baths',l:'衛浴數',t:'number'},
+  {k:'area',l:'權狀面積（平方公尺）',t:'number',step:'0.01',h:'依權狀上的建物面積填寫，單位為平方公尺'},
+  {k:'rooms',l:'房數',t:'number'},{k:'baths',l:'衛浴數',t:'number',step:'0.5',h:'可填 0.5，例如 1.5 衛'},
   {k:'partition',l:'是否有隔間',t:'radio',o:YN},
-  {k:'scope',l:'委託管理範圍',t:'radio',o:['全部','部分','排除部分空間'],r:1,full:1},
+  {k:'scope',l:'委託管理範圍',t:'radio',o:['全部','部分','排除部分空間'],r:1,full:1,h:'整層住家通常選「全部」'},
   {k:'scopeNote',l:'範圍說明',t:'text',full:1,h:'例：第 3 層 房間 2 間 第 301 室；或排除儲藏室',when:f=>f.scope&&f.scope!=='全部',r:1},
   {k:'encumb',l:'是否有設定他項權利（如抵押權）',t:'radio',o:YNU,r:1},
   {k:'encumbType',l:'權利種類',t:'text',h:'例：銀行抵押權',when:f=>f.encumb==='是'},
@@ -143,7 +143,7 @@ const S=[
   {k:'motoNo',l:'機車位編號',t:'text',when:f=>f.moto==='有'},
   {k:'motoQty',l:'數量',t:'number',when:f=>f.moto==='有'}
  ]},
- {id:'s3',no:'3',title:'水電瓦斯網路',sub:'不確定的項目可以留空，承辦人會再跟您確認。',fields:[
+ {id:'s3',no:'3',title:'水電瓦斯網路',sub:'整層住家的水費、電費請選「依帳單」。不確定的項目可以留空，承辦人會再跟您確認。',fields:[
   {k:'water',l:'水費計算方式',t:'radio',o:['依帳單','依比例拆算','固定費用','不確定']},
   {k:'waterNote',l:'水費說明（拆算方式／固定金額）',t:'text',when:f=>['依比例拆算','固定費用'].includes(f.water)},
   {k:'elec',l:'電費計算方式',t:'radio',o:['依帳單','依電表度數','固定費用','不確定']},
@@ -164,10 +164,7 @@ const S=[
   {k:'acctName',l:'戶名',t:'text',r:1},
   {k:'acctNo',l:'帳號',t:'text',r:1},
   {k:'notOwner',l:'',t:'check',o:['此帳戶戶名不是屋主本人'],full:1,h:'若勾選，需另簽「非本人帳戶切結書」'},
-  {k:'depHold',l:'房客押金由誰保管',t:'radio',o:['屋主全部保管','由租寓保管（屋主不持有）','屋主保管部分'],r:1,full:1},
-  {k:'depHoldAmt',l:'屋主保管的押金金額（元）',t:'number',r:1,when:f=>f.depHold==='屋主保管部分'},
-  {k:'depRule',l:'希望向房客收取的押金',t:'radio',o:['1 個月租金','2 個月租金','固定金額'],full:1,h:'依法最高不得超過 2 個月租金'},
-  {k:'depFixed',l:'押金固定金額（元）',t:'number',r:1,when:f=>f.depRule==='固定金額'},
+  {k:'depHold',l:'房客押金由誰保管',t:'radio',o:['屋主全部保管','由租寓保管（屋主不持有）'],r:1,full:1,h:'房客押金固定為 2 個月租金'},
   {k:'tenant',l:'目前是否已有房客',t:'radio',o:YN,full:1},
   {k:'tenantDep',l:'屋主目前手上持有的押金（元）',t:'number',when:f=>f.tenant==='是',h:'與現有房客簽約時已交付屋主的押金'},
   {k:'tenantNote',l:'現有房客租約說明',t:'text',full:1,when:f=>f.tenant==='是',h:'例：租約到期日、目前月租'}
@@ -194,9 +191,7 @@ const S=[
   {k:'motoFeeFreq',l:'機車位管理費頻率',t:'select',o:FREQ,when:f=>f.moto==='有'},
   {k:'motoFeePayer',l:'機車位管理費由誰負擔',t:'radio',o:PAYER,when:f=>f.moto==='有'},
   {k:'arrears',l:'目前是否有積欠管理費',t:'radio',o:YN,full:1},
-  {k:'arrearsAmt',l:'積欠金額（元）',t:'number',r:1,when:f=>f.arrears==='是'},
-  {k:'equip',l:'附屬設備清單（屋內留給房客使用的家具家電）',t:'rep',cols:[['name','設備名稱','text'],['qty','數量','number'],['note','備註','text']],full:1},
-  {k:'equipNote',l:'設備補充說明',t:'textarea',full:1,h:'例：耗材由承租人自行更換，點交時另行確認數量'}
+  {k:'arrearsAmt',l:'積欠金額（元）',t:'number',r:1,when:f=>f.arrears==='是'}
  ]},
  {id:'s6',no:'6',title:'出租偏好',sub:'讓我們依照您的想法招租。',fields:[
   {k:'ptype',l:'出租方式',t:'radio',o:['整層出租','分間出租（套房／雅房）'],r:1,full:1},
@@ -230,9 +225,7 @@ const S=[
   {k:'shortNote',l:'短租租金調整說明',t:'text',when:f=>f.short==='可'},
   {k:'keys',l:'鑰匙交付',t:'text',full:1,h:'可交付幾副、預計如何交付（例：請家人轉交、放管理室）'}
  ]},
- {id:'s7',no:'7',title:'簽約通知與文件',sub:'合約準備好後，我們會傳送線上簽署連結給您。',fields:[
-  {k:'notify',l:'希望用哪種方式收到簽署連結',t:'check',o:['Email','簡訊','LINE'],r:1,full:1},
-  {k:'sms',l:'收簡訊的手機號碼（含國碼）',t:'tel',r:1,when:f=>has(f.notify,'簡訊')},
+ {id:'s7',no:'7',title:'簽約文件與備註',sub:'合約準備好後，我們會透過 LINE 傳送線上簽署連結給您。',fields:[
   {k:'docs',l:'以下文件請拍照或掃描另外傳給承辦人，已傳送的請打勾',t:'check',full:1,o:[
     '身分證正反面影本（必要）','房屋權狀影本','建物第一類謄本','最新房屋稅單','存摺封面影本',
     '近期水費、電費、瓦斯費帳單','車位權狀或分管協議（有車位才需要）','公寓大廈規約／管委會規定（如有）']},
@@ -267,7 +260,7 @@ function fieldHTML(f){
   const hint=f.h?`<span class="hint">${esc(f.h)}</span>`:'';
   let ctl='';
   if(['text','tel','email','date','number'].includes(f.t))
-    ctl=`<input id="${f.k}" name="${f.k}" type="${f.t}"${f.t==='number'?' inputmode="decimal" min="0"':''}>`;
+    ctl=`<input id="${f.k}" name="${f.k}" type="${f.t}"${f.t==='number'?' inputmode="decimal" min="0" step="'+(f.step||'1')+'"':''}>`;
   else if(f.t==='textarea') ctl=`<textarea id="${f.k}" name="${f.k}"></textarea>`;
   else if(f.t==='select') ctl=`<select id="${f.k}" name="${f.k}"><option value="">請選擇</option>${f.o.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
   else if(f.t==='radio'||f.t==='check'){
@@ -280,8 +273,7 @@ function fieldHTML(f){
   }
   return `<div class="f${f.full?' full':''}" data-k="${f.k}">${lab}${ctl}${hint}<span class="errmsg">此欄必填</span></div>`;
 }
-form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('')
- +`<datalist id="equipList">${['冷氣','冰箱','洗衣機','烘衣機','熱水器','電視','床架','床墊','衣櫃','書桌','椅子','沙發','餐桌椅','窗簾','抽油煙機','瓦斯爐','電磁爐','微波爐','除濕機','網路分享器'].map(x=>`<option value="${x}">`).join('')}</datalist>`;
+form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('');
 
 const ALL=S.flatMap(s=>s.fields.map(f=>({...f,sec:s})));
 const REP=Object.fromEntries(ALL.filter(f=>f.t==='rep').map(f=>[f.k,f]));
