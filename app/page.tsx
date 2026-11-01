@@ -78,6 +78,14 @@ export default function Home() {
           isPublic: true,
         },
         {
+          href: "/sign-form",
+          icon: "✍️",
+          title: "代管簽約資料表",
+          desc: "屋主在海外時，先線上填好簽約所需資料再傳回",
+          external: true, // public/ 靜態頁，免登入即可開
+          isPublic: true,
+        },
+        {
           href: "/statement",
           icon: "🧾",
           title: "代管表說明",

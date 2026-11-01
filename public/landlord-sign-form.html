@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>租寓代管簽約資料表</title>
+<style>
+:root{
+  --bg:#f5f6f4;--card:#ffffff;--ink:#1d2421;--muted:#66706b;--line:#dfe3e0;
+  --accent:#1f6f5c;--accent-ink:#ffffff;--accent-soft:#e6f2ee;--req:#c2410c;--err-bg:#fff1ec;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121614;--card:#1b201e;--ink:#e7ece9;--muted:#9aa5a0;--line:#2e3532;
+  --accent:#4fb59a;--accent-ink:#0d1a16;--accent-soft:#1f2e29;--req:#fb923c;--err-bg:#2c1c15;}}
+:root[data-theme="dark"]{
+  --bg:#121614;--card:#1b201e;--ink:#e7ece9;--muted:#9aa5a0;--line:#2e3532;
+  --accent:#4fb59a;--accent-ink:#0d1a16;--accent-soft:#1f2e29;--req:#fb923c;--err-bg:#2c1c15;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 120px}
+header h1{font-size:1.5rem;margin:0 0 4px}
+header p{margin:4px 0;color:var(--muted)}
+.notice{background:var(--accent-soft);border-radius:10px;padding:12px 14px;margin:16px 0;font-size:.95rem}
+.notice b{color:var(--accent)}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 18px;margin:18px 0}
+section.card h2{font-size:1.15rem;margin:0 0 2px;display:flex;gap:10px;align-items:baseline}
+section.card h2 .no{color:var(--accent);font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);font-size:.9rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 14px}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.f.full{grid-column:1/-1}
+label.l{font-weight:600;font-size:.95rem}
+.req{color:var(--req);margin-left:3px}
+.hint{color:var(--muted);font-size:.83rem}
+input[type=text],input[type=tel],input[type=email],input[type=date],input[type=number],select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;font-size:.95rem;background:var(--card)}
+.opts input{accent-color:var(--accent);margin:0}
+.opts label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.f.bad input,.f.bad select,.f.bad textarea{border-color:var(--req)}
+.f.bad .opts label{border-color:var(--req)}
+.f .errmsg{display:none;color:var(--req);font-size:.83rem}
+.f.bad .errmsg{display:block}
+.rep{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
+.rep-row{display:grid;gap:8px;align-items:center}
+.rep-row button{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;height:42px;cursor:pointer}
+.btn{border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.small{padding:7px 12px;font-size:.9rem}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px 16px}
+.bar .in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.bar .prog{color:var(--muted);font-size:.9rem}
+#errors{display:none;background:var(--err-bg);border:1px solid var(--req);border-radius:10px;padding:12px 14px;margin:16px 0}
+#errors ul{margin:6px 0 0;padding-left:20px}
+#result{display:none}
+#out{width:100%;min-height:340px;font:14px/1.55 ui-monospace,Menlo,Consolas,monospace}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.hide{display:none!important}
+.legend{font-size:.9rem;color:var(--muted)}
+@media (max-width:560px){.grid{grid-template-columns:1fr}.f.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>租寓 房屋代管簽約資料表</h1>
+  <p>屋主您好，為了在您回國前先備妥代管合約，請協助填寫以下資料。大約需要 15–20 分鐘。</p>
+</header>
+
+<div class="notice">
+  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。填完後按下方「產生回覆內容」，再「複製」貼到 LINE 或 Email 傳給您的租寓承辦人即可。<br>
+  <b>隱私說明：</b>本頁不會把資料上傳到任何伺服器，內容只存在您這台裝置的瀏覽器裡（中途關掉頁面也會自動保留草稿）。
+</div>
+
+<form id="form" novalidate></form>
+
+<div id="errors"><b>還有幾個必填欄位沒完成：</b><ul></ul></div>
+
+<section class="card" id="result">
+  <h2>回覆內容</h2>
+  <p class="sub">請按「複製內容」，貼到 LINE 或 Email 傳給承辦人。身分證、權狀等文件請另外拍照傳送。</p>
+  <textarea id="out" readonly></textarea>
+  <div class="actions">
+    <button type="button" class="btn pri" id="copy">複製內容</button>
+    <button type="button" class="btn sec" id="dl">下載成文字檔</button>
+  </div>
+</section>
+</div>
+
+<div class="bar"><div class="in">
+  <span class="prog" id="prog"></span>
+  <span style="display:flex;gap:8px">
+    <button type="button" class="btn sec small" id="clear">清除重填</button>
+    <button type="button" class="btn pri" id="gen">產生回覆內容</button>
+  </span>
+</div></div>
+
+<script>
+/* ---------- schema ---------- */
+const YN=['是','否'], YNU=['是','否','不確定'], CAN=['可','不可'], HAS=['有','無'];
+const FIX=['委託人（屋主）修繕後交屋','委託租寓修繕','其他'];
+const FREQ=['月繳','季繳','半年繳','年繳','其他'], PAYER=['屋主','房客'];
+const S=[
+ {id:'s1',no:'1',title:'屋主（委託人）基本資料',sub:'會印在合約甲方欄位。',fields:[
+  {k:'name',l:'姓名／公司名稱',t:'text',r:1},
+  {k:'idno',l:'身分證字號／統一編號',t:'text',r:1,h:'自然人填 10 碼身分證字號；法人填 8 碼統一編號',chk:'id'},
+  {k:'regAddr',l:'戶籍地址',t:'text',r:1,full:1},
+  {k:'sameAddr',l:'通訊地址',t:'check',o:['同戶籍地址'],full:1},
+  {k:'mailAddr',l:'通訊地址（海外地址亦可）',t:'text',full:1,when:f=>!has(f.sameAddr,'同戶籍地址')},
+  {k:'phone',l:'聯絡電話',t:'tel',r:1,h:'請含國碼，例如 +1 415 555 0100 / +886 912 345 678'},
+  {k:'email',l:'Email',t:'email',r:1},
+  {k:'lineId',l:'LINE ID',t:'text',h:'選填，方便聯繫'},
+  {k:'tz',l:'目前所在國家／時區',t:'text',h:'選填，方便約時間聯絡'}
+ ]},
+ {id:'s2',no:'2',title:'房屋標的',sub:'請依房屋稅單或權狀填寫。',fields:[
+  {k:'city',l:'縣市',t:'select',o:['桃園市','新北市','台北市','其他'],r:1},
+  {k:'dist',l:'鄉鎮市區',t:'text',r:1,h:'例：龜山區'},
+  {k:'addr',l:'門牌（路街／段／巷／弄／號／樓／之）',t:'text',r:1,full:1,h:'例：文化二路 34 巷 14 弄 6 號 6 樓之 2'},
+  {k:'community',l:'社區名稱',t:'text',h:'無社區名稱可留空'},
+  {k:'taxNo',l:'房屋稅籍編號',t:'text',h:'房屋稅單上可找到'},
+  {k:'floors',l:'整棟總樓層',t:'number',h:'整棟建物共幾層'},
+  {k:'area',l:'權狀坪數',t:'number',h:'權狀上的建物面積（坪）'},
+  {k:'rooms',l:'房數',t:'number'},{k:'halls',l:'廳數',t:'number'},{k:'baths',l:'衛浴數',t:'number'},
+  {k:'partition',l:'是否有隔間',t:'radio',o:YN},
+  {k:'scope',l:'委託管理範圍',t:'radio',o:['全部','部分','排除部分空間'],r:1,full:1},
+  {k:'scopeNote',l:'範圍說明',t:'text',full:1,h:'例：第 3 層 房間 2 間 第 301 室；或排除儲藏室',when:f=>f.scope&&f.scope!=='全部',r:1},
+  {k:'encumb',l:'是否有設定他項權利（如抵押權）',t:'radio',o:YNU,r:1},
+  {k:'encumbType',l:'權利種類',t:'text',h:'例：銀行抵押權',when:f=>f.encumb==='是'},
+  {k:'seizure',l:'是否有查封登記',t:'radio',o:YNU,r:1},
+  {k:'car',l:'是否有汽車停車位',t:'radio',o:HAS,r:1,full:1},
+  {k:'carType',l:'車位種類',t:'radio',o:['平面式','機械式','其他'],when:f=>f.car==='有'},
+  {k:'carFloor',l:'車位樓層',t:'text',when:f=>f.car==='有'},
+  {k:'carNo',l:'車位編號',t:'text',when:f=>f.car==='有'},
+  {k:'carQty',l:'數量',t:'number',when:f=>f.car==='有'},
+  {k:'carDeed',l:'車位文件',t:'check',o:['有獨立權狀','有分管協議'],when:f=>f.car==='有'},
+  {k:'carTime',l:'車位使用時間',t:'radio',o:['全日','日間','夜間','其他'],when:f=>f.car==='有'},
+  {k:'moto',l:'是否有機車停車位',t:'radio',o:HAS,full:1},
+  {k:'motoFloor',l:'機車位樓層',t:'text',when:f=>f.moto==='有'},
+  {k:'motoNo',l:'機車位編號',t:'text',when:f=>f.moto==='有'},
+  {k:'motoQty',l:'數量',t:'number',when:f=>f.moto==='有'}
+ ]},
+ {id:'s3',no:'3',title:'水電瓦斯網路',sub:'不確定的項目可以留空，承辦人會再跟您確認。',fields:[
+  {k:'water',l:'水費計算方式',t:'radio',o:['依帳單','依比例拆算','固定費用','不確定']},
+  {k:'waterNote',l:'水費說明（拆算方式／固定金額）',t:'text',when:f=>['依比例拆算','固定費用'].includes(f.water)},
+  {k:'elec',l:'電費計算方式',t:'radio',o:['依帳單','依電表度數','固定費用','不確定']},
+  {k:'elecNote',l:'電費說明（每度單價／固定金額）',t:'text',when:f=>['依電表度數','固定費用'].includes(f.elec)},
+  {k:'gas',l:'瓦斯',t:'radio',o:['無','天然氣','桶裝瓦斯']},
+  {k:'heater',l:'熱水器類型',t:'radio',o:['電熱水器','瓦斯熱水器','熱泵','其他']},
+  {k:'net',l:'是否有網路',t:'radio',o:HAS,full:1},
+  {k:'netIsp',l:'網路業者／計費方式',t:'text',when:f=>f.net==='有'},
+  {k:'netFee',l:'網路月費（元）',t:'number',when:f=>f.net==='有'},
+  {k:'netAcct',l:'網路帳號',t:'text',when:f=>f.net==='有'},
+  {k:'netPwd',l:'網路密碼',t:'text',when:f=>f.net==='有'}
+ ]},
+ {id:'s4',no:'4',title:'委託期間與租金撥款帳戶',sub:'租金會撥入此帳戶。',fields:[
+  {k:'start',l:'希望起代管日',t:'date',r:1},
+  {k:'years',l:'委託年限（年）',t:'number',r:1,h:'例：2'},
+  {k:'bank',l:'銀行',t:'text',r:1,h:'例：國泰世華銀行'},
+  {k:'branch',l:'分行',t:'text',r:1,h:'例：林口分行'},
+  {k:'acctName',l:'戶名',t:'text',r:1},
+  {k:'acctNo',l:'帳號',t:'text',r:1},
+  {k:'notOwner',l:'',t:'check',o:['此帳戶戶名不是屋主本人'],full:1,h:'若勾選，需另簽「非本人帳戶切結書」'},
+  {k:'depHold',l:'房客押金由誰保管',t:'radio',o:['屋主全部保管','由租寓保管（屋主不持有）','屋主保管部分'],r:1,full:1},
+  {k:'depHoldAmt',l:'屋主保管的押金金額（元）',t:'number',r:1,when:f=>f.depHold==='屋主保管部分'},
+  {k:'depRule',l:'希望向房客收取的押金',t:'radio',o:['1 個月租金','2 個月租金','固定金額'],full:1,h:'依法最高不得超過 2 個月租金'},
+  {k:'depFixed',l:'押金固定金額（元）',t:'number',r:1,when:f=>f.depRule==='固定金額'},
+  {k:'tenant',l:'目前是否已有房客',t:'radio',o:YN,full:1},
+  {k:'tenantDep',l:'屋主目前手上持有的押金（元）',t:'number',when:f=>f.tenant==='是',h:'與現有房客簽約時已交付屋主的押金'},
+  {k:'tenantNote',l:'現有房客租約說明',t:'text',full:1,when:f=>f.tenant==='是',h:'例：租約到期日、目前月租'}
+ ]},
+ {id:'s5',no:'5',title:'房屋現況確認',sub:'依法須在合約中如實告知，請您逐項確認。',fields:[
+  {k:'leak',l:'是否有滲漏水',t:'radio',o:YNU,r:1,full:1},
+  {k:'leakWhere',l:'滲漏水位置',t:'text',when:f=>f.leak==='是'},
+  {k:'leakFix',l:'處理方式',t:'radio',o:FIX,when:f=>f.leak==='是'},
+  {k:'radiation',l:'是否為輻射屋（曾經檢測有輻射異常）',t:'radio',o:YNU,r:1,full:1},
+  {k:'radFix',l:'輻射屋處理方式',t:'text',full:1,when:f=>f.radiation==='是'},
+  {k:'seasand',l:'是否為海砂屋（曾經檢測氯離子含量超標）',t:'radio',o:YNU,r:1,full:1},
+  {k:'seaFix',l:'海砂屋處理方式',t:'text',full:1,when:f=>f.seasand==='是'},
+  {k:'death',l:'您持有期間，屋內是否發生過非自然死亡事件',t:'radio',o:YN,r:1,full:1},
+  {k:'drain',l:'給排水是否正常',t:'radio',o:YN,r:1},
+  {k:'fire',l:'消防設施（可複選）',t:'check',o:['滅火器','住宅用火災警報器','灑水設備','緩降機','無']},
+  {k:'mgmt',l:'是否有公寓大廈管理費',t:'radio',o:HAS,full:1},
+  {k:'mgmtFee',l:'管理費金額（元）',t:'number',when:f=>f.mgmt==='有'},
+  {k:'mgmtFreq',l:'繳納頻率',t:'select',o:FREQ,when:f=>f.mgmt==='有'},
+  {k:'mgmtPayer',l:'由誰負擔',t:'radio',o:PAYER,when:f=>f.mgmt==='有'},
+  {k:'carFee',l:'汽車位管理費（元）',t:'number',when:f=>f.car==='有'},
+  {k:'carFeeFreq',l:'汽車位管理費頻率',t:'select',o:FREQ,when:f=>f.car==='有'},
+  {k:'carFeePayer',l:'汽車位管理費由誰負擔',t:'radio',o:PAYER,when:f=>f.car==='有'},
+  {k:'motoFee',l:'機車位管理費（元）',t:'number',when:f=>f.moto==='有'},
+  {k:'motoFeeFreq',l:'機車位管理費頻率',t:'select',o:FREQ,when:f=>f.moto==='有'},
+  {k:'motoFeePayer',l:'機車位管理費由誰負擔',t:'radio',o:PAYER,when:f=>f.moto==='有'},
+  {k:'arrears',l:'目前是否有積欠管理費',t:'radio',o:YN,full:1},
+  {k:'arrearsAmt',l:'積欠金額（元）',t:'number',r:1,when:f=>f.arrears==='是'},
+  {k:'equip',l:'附屬設備清單（屋內留給房客使用的家具家電）',t:'rep',cols:[['name','設備名稱','text'],['qty','數量','number'],['note','備註','text']],full:1},
+  {k:'equipNote',l:'設備補充說明',t:'textarea',full:1,h:'例：耗材由承租人自行更換，點交時另行確認數量'}
+ ]},
+ {id:'s6',no:'6',title:'出租偏好',sub:'讓我們依照您的想法招租。',fields:[
+  {k:'ptype',l:'出租方式',t:'radio',o:['整層出租','分間出租（套房／雅房）'],r:1,full:1},
+  {k:'rents',l:'期望月租金',t:'rep',r:1,cols:[['name','名稱（整層可留空，分租請填房號）','text'],['rent','期望月租金（元）','number']],full:1},
+  {k:'furniture',l:'現有家具處理方式',t:'radio',o:['可提供家具','可換現況家具','現況出租','可丟棄','其他'],full:1},
+  {k:'notary',l:'是否需要辦理公證',t:'radio',o:YN},
+  {k:'tax',l:'房客可報稅',t:'radio',o:CAN,h:'依政府規定合約上須同意，這裡是了解您的真實想法'},
+  {k:'household',l:'房客可遷入戶籍',t:'radio',o:CAN},
+  {k:'subsidy',l:'房客可申請租屋補助',t:'radio',o:CAN},
+  {k:'cleanFee',l:'清潔費',t:'radio',o:['無','固定金額','依帳單繳納']},
+  {k:'cleanAmt',l:'清潔費金額／頻率',t:'text',when:f=>f.cleanFee&&f.cleanFee!=='無'},
+  {k:'guard',l:'管理員',t:'radio',o:['24 小時','日間','無','其他']},
+  {k:'parcel',l:'管理室代收包裹',t:'radio',o:HAS},
+  {k:'trash',l:'垃圾代收',t:'radio',o:HAS},
+  {k:'trashWhere',l:'垃圾放置位置',t:'text'},
+  {k:'committee',l:'管理室／管委會聯絡方式',t:'text',full:1},
+  {k:'people',l:'人數限制',t:'text',h:'例：最多 2 人'},
+  {k:'gender',l:'性別限制',t:'text',h:'不限可留空'},
+  {k:'age',l:'年齡限制',t:'text'},
+  {k:'job',l:'職業／作息限制',t:'text'},
+  {k:'smoke',l:'抽菸／檳榔',t:'radio',o:CAN},
+  {k:'pet',l:'養寵物',t:'radio',o:CAN},
+  {k:'petNote',l:'可接受的寵物種類與隻數',t:'text',when:f=>f.pet==='可'},
+  {k:'foreign',l:'外籍房客',t:'radio',o:CAN},
+  {k:'foreignNote',l:'外籍房客其他說明',t:'text',when:f=>f.foreign==='可'},
+  {k:'nail',l:'可在牆上釘釘子',t:'radio',o:CAN},
+  {k:'cook',l:'可開伙',t:'radio',o:CAN},
+  {k:'cookType',l:'可使用的開伙方式',t:'text',h:'例：電磁爐可、明火不可',when:f=>f.cook==='可'},
+  {k:'short',l:'可短租',t:'radio',o:CAN},
+  {k:'shortMin',l:'最短租期（月）',t:'number',when:f=>f.short==='可'},
+  {k:'shortNote',l:'短租租金調整說明',t:'text',when:f=>f.short==='可'},
+  {k:'keys',l:'鑰匙交付',t:'text',full:1,h:'可交付幾副、預計如何交付（例：請家人轉交、放管理室）'}
+ ]},
+ {id:'s7',no:'7',title:'簽約通知與文件',sub:'合約準備好後，我們會傳送線上簽署連結給您。',fields:[
+  {k:'notify',l:'希望用哪種方式收到簽署連結',t:'check',o:['Email','簡訊','LINE'],r:1,full:1},
+  {k:'sms',l:'收簡訊的手機號碼（含國碼）',t:'tel',r:1,when:f=>has(f.notify,'簡訊')},
+  {k:'docs',l:'以下文件請拍照或掃描另外傳給承辦人，已傳送的請打勾',t:'check',full:1,o:[
+    '身分證正反面影本（必要）','房屋權狀影本','建物第一類謄本','最新房屋稅單','存摺封面影本',
+    '近期水費、電費、瓦斯費帳單','車位權狀或分管協議（有車位才需要）','公寓大廈規約／管委會規定（如有）']},
+  {k:'memo',l:'其他想告訴我們的事',t:'textarea',full:1}
+ ]}
+];
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const has=(v,x)=>Array.isArray(v)&&v.includes(x);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY='zuyou-intake-v1';
+function twIdOk(v){
+  v=v.trim().toUpperCase();
+  if(/^\d{8}$/.test(v)){ // 統一編號
+    const w=[1,2,1,2,1,2,4,1];let s=0;
+    for(let i=0;i<8;i++){const p=+v[i]*w[i];s+=Math.floor(p/10)+p%10;}
+    return s%5===0||(v[6]==='7'&&(s+1)%5===0);
+  }
+  if(!/^[A-Z][1289]\d{8}$/.test(v)) return null; // 非台灣格式（護照、舊式居留證）→ 僅提醒
+  const L='ABCDEFGHJKLMNPQRSTUVXYWZIO',n=L.indexOf(v[0])+10;
+  let s=Math.floor(n/10)+(n%10)*9;
+  for(let i=1;i<9;i++)s+=+v[i]*(9-i);
+  s+=+v[9];return s%10===0;
+}
+
+/* ---------- render ---------- */
+const form=$('#form');
+function fieldHTML(f){
+  const req=f.r?'<span class="req">*</span>':'';
+  const lab=f.l?`<label class="l" for="${f.k}">${esc(f.l)}${req}</label>`:'';
+  const hint=f.h?`<span class="hint">${esc(f.h)}</span>`:'';
+  let ctl='';
+  if(['text','tel','email','date','number'].includes(f.t))
+    ctl=`<input id="${f.k}" name="${f.k}" type="${f.t}"${f.t==='number'?' inputmode="decimal" min="0"':''}>`;
+  else if(f.t==='textarea') ctl=`<textarea id="${f.k}" name="${f.k}"></textarea>`;
+  else if(f.t==='select') ctl=`<select id="${f.k}" name="${f.k}"><option value="">請選擇</option>${f.o.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  else if(f.t==='radio'||f.t==='check'){
+    const ty=f.t==='radio'?'radio':'checkbox';
+    ctl=`<div class="opts" id="${f.k}">${f.o.map(o=>`<label><input type="${ty}" name="${f.k}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;
+  } else if(f.t==='rep'){
+    return `<div class="rep f" data-k="${f.k}"><label class="l">${esc(f.l)}${req}</label>${hint}
+      <div class="rows"></div><div><button type="button" class="btn sec small" data-add="${f.k}">＋ 新增一列</button></div>
+      <span class="errmsg">請至少填一筆</span></div>`;
+  }
+  return `<div class="f${f.full?' full':''}" data-k="${f.k}">${lab}${ctl}${hint}<span class="errmsg">此欄必填</span></div>`;
+}
+form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('')
+ +`<datalist id="equipList">${['冷氣','冰箱','洗衣機','烘衣機','熱水器','電視','床架','床墊','衣櫃','書桌','椅子','沙發','餐桌椅','窗簾','抽油煙機','瓦斯爐','電磁爐','微波爐','除濕機','網路分享器'].map(x=>`<option value="${x}">`).join('')}</datalist>`;
+
+const ALL=S.flatMap(s=>s.fields.map(f=>({...f,sec:s})));
+const REP=Object.fromEntries(ALL.filter(f=>f.t==='rep').map(f=>[f.k,f]));
+function addRow(k,vals={}){
+  const f=REP[k],box=form.querySelector(`[data-k="${k}"] .rows`);
+  const row=document.createElement('div');row.className='rep-row';
+  row.style.gridTemplateColumns=f.cols.map(c=>c[2]==='number'?'minmax(0,.7fr)':'minmax(0,1.4fr)').join(' ')+' 42px';
+  row.innerHTML=f.cols.map(c=>`<input type="${c[2]}" data-c="${c[0]}" placeholder="${esc(c[1])}" aria-label="${esc(c[1])}"${c[2]==='number'?' min="0" inputmode="decimal"':''}${k==='equip'&&c[0]==='name'?' list="equipList"':''} value="${esc(vals[c[0]]??'')}">`).join('')+`<button type="button" aria-label="刪除這一列">✕</button>`;
+  row.querySelector('button').onclick=()=>{row.remove();save();};
+  box.appendChild(row);
+}
+form.addEventListener('click',e=>{const k=e.target.dataset&&e.target.dataset.add;if(k){addRow(k);}});
+
+/* ---------- state ---------- */
+function read(){
+  const d={};
+  for(const f of ALL){
+    if(f.t==='rep'){
+      d[f.k]=[...form.querySelectorAll(`[data-k="${f.k}"] .rep-row`)].map(r=>Object.fromEntries([...r.querySelectorAll('input')].map(i=>[i.dataset.c,i.value.trim()]))).filter(o=>Object.values(o).some(Boolean));
+    } else if(f.t==='radio'){ const c=form.querySelector(`input[name="${f.k}"]:checked`); d[f.k]=c?c.value:''; }
+    else if(f.t==='check'){ d[f.k]=[...form.querySelectorAll(`input[name="${f.k}"]:checked`)].map(i=>i.value); }
+    else d[f.k]=(form.elements[f.k].value||'').trim();
+  }
+  return d;
+}
+function write(d){
+  for(const f of ALL){
+    const v=d[f.k]; if(v==null) continue;
+    if(f.t==='rep'){ form.querySelector(`[data-k="${f.k}"] .rows`).innerHTML=''; v.forEach(r=>addRow(f.k,r)); }
+    else if(f.t==='radio'||f.t==='check'){ form.querySelectorAll(`input[name="${f.k}"]`).forEach(i=>i.checked=f.t==='radio'?i.value===v:has(v,i.value)); }
+    else form.elements[f.k].value=v;
+  }
+}
+function visible(f,d){return !f.when||f.when(d);}
+function filled(f,d){const v=d[f.k];return Array.isArray(v)?(f.t==='rep'?v.some(o=>f.k==='rents'?o.rent:o.name):v.length>0):!!v;}
+function refresh(){
+  const d=read();let tot=0,done=0;
+  for(const f of ALL){
+    const el=form.querySelector(`[data-k="${f.k}"]`),vis=visible(f,d);
+    el.classList.toggle('hide',!vis);
+    if(vis&&f.r){tot++;if(filled(f,d))done++;}
+  }
+  $('#prog').textContent=`必填完成 ${done} / ${tot}`;
+  return d;
+}
+let t;function save(){clearTimeout(t);t=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(read()));}catch(e){}},300);}
+form.addEventListener('input',()=>{refresh();save();});
+form.addEventListener('change',()=>{refresh();save();});
+
+/* ---------- validate & output ---------- */
+function validate(d){
+  const errs=[];form.querySelectorAll('.bad').forEach(e=>e.classList.remove('bad'));
+  for(const f of ALL){
+    if(!visible(f,d))continue;
+    const el=form.querySelector(`[data-k="${f.k}"]`);
+    if(f.r&&!filled(f,d)){el.classList.add('bad');errs.push([f,`第 ${f.sec.no} 區｜${f.l||f.o[0]}`]);continue;}
+    if(f.chk==='id'&&d[f.k]){
+      const ok=twIdOk(d[f.k]);
+      if(ok===false){el.classList.add('bad');el.querySelector('.errmsg').textContent='檢查碼不正確，請再確認一次';errs.push([f,`第 1 區｜身分證字號／統編檢查碼不正確`]);}
+      else el.querySelector('.errmsg').textContent='此欄必填';
+    }
+    if(f.t==='email'&&d[f.k]&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d[f.k])){el.classList.add('bad');el.querySelector('.errmsg').textContent='Email 格式不正確';errs.push([f,'第 1 區｜Email 格式不正確']);}
+  }
+  return errs;
+}
+function fmt(f,d){
+  const v=d[f.k];
+  if(f.t==='rep') return v.map((o,i)=>'\n    '+(i+1)+'. '+f.cols.map(c=>o[c[0]]?`${c[1].replace(/（.*?）/,'')}：${o[c[0]]}`:'').filter(Boolean).join('，')).join('');
+  if(Array.isArray(v)) return v.join('、');
+  return v;
+}
+function build(d){
+  const lines=['【租寓代管簽約資料】','填寫時間：'+new Date().toLocaleString('zh-TW',{hour12:false}),''];
+  for(const s of S){
+    const sec=[];
+    for(const f of s.fields){
+      if(!visible(f,d)||!filled(f,d))continue;
+      if(f.k==='sameAddr'){sec.push('  通訊地址：同戶籍地址');continue;}
+      if(f.k==='docs')continue;
+      sec.push(`  ${f.l||'備註'}：${fmt(f,d)}`);
+    }
+    if(sec.length) lines.push(`■ ${s.no}. ${s.title}`,...sec,'');
+  }
+  const miss=S[6].fields.find(f=>f.k==='docs').o.filter(o=>!has(d.docs,o));
+  if(miss.length) lines.push('※ 尚未傳送的文件：'+miss.join('、'));
+  return lines.join('\n');
+}
+$('#gen').onclick=()=>{
+  const d=refresh(),errs=validate(d),box=$('#errors');
+  if(errs.length){
+    box.style.display='block';box.querySelector('ul').innerHTML=errs.map(e=>`<li>${esc(e[1])}</li>`).join('');
+    $('#result').style.display='none';
+    form.querySelector(`[data-k="${errs[0][0].k}"]`).scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  box.style.display='none';$('#out').value=build(d);$('#result').style.display='block';
+  $('#result').scrollIntoView({behavior:'smooth'});
+};
+$('#copy').onclick=async()=>{
+  const o=$('#out');
+  try{await navigator.clipboard.writeText(o.value);}catch(e){o.select();document.execCommand('copy');}
+  $('#copy').textContent='已複製 ✓';setTimeout(()=>$('#copy').textContent='複製內容',1800);
+};
+$('#dl').onclick=()=>{
+  const name=(read().name||'屋主').replace(/[\\/:*?"<>|]/g,'');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+$('#out').value],{type:'text/plain;charset=utf-8'}));
+  a.download=`租寓簽約資料_${name}.txt`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+$('#clear').onclick=()=>{
+  if(!$('#clear').dataset.arm){$('#clear').dataset.arm='1';$('#clear').textContent='再按一次確認清除';setTimeout(()=>{delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';},3000);return;}
+  try{localStorage.removeItem(KEY);}catch(e){}
+  form.reset();form.querySelectorAll('.rows').forEach(r=>r.innerHTML='');init(true);
+  delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';$('#result').style.display='none';$('#errors').style.display='none';
+};
+
+/* ---------- init ---------- */
+function init(fresh){
+  let d=null;if(!fresh){try{d=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
+  if(d) write(d);
+  for(const k in REP){ if(!form.querySelector(`[data-k="${k}"] .rep-row`)) { addRow(k); if(k==='equip'){addRow(k);addRow(k);} } }
+  refresh();
+}
+init();
+</script>
+</body>
+</html>

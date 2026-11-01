@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/daiguan", destination: "/daiguan-vs-shezhai.html" },
       { source: "/faq-diagrams", destination: "/landlord-faq-diagrams.html" },
+      { source: "/sign-form", destination: "/landlord-sign-form.html" },
     ];
   },
 };
