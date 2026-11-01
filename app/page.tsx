@@ -81,7 +81,7 @@ export default function Home() {
           href: "/sign-form",
           icon: "✍️",
           title: "代管簽約資料表",
-          desc: "屋主在海外時，先線上填好簽約所需資料再傳回",
+          desc: "屋主您好，為了先備妥代管合約，請協助填寫以下資料。大約需要 15–20 分鐘。",
           external: true, // public/ 靜態頁，免登入即可開
           isPublic: true,
         },
