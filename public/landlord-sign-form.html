@@ -347,6 +347,29 @@ function splitAddr(a){
   return {city:m[1],dist:m[2],addr:rest};
 }
 const ADDR_RE=/[一-鿿\d之\-]+?號(?:[\d之\-]*樓(?:之\d+)?)?(?:之\d+)?/;
+// 服務區域的行政區 → 縣市（權狀門牌常不含縣市區，要從「坐落」欄或全文找）
+const DISTS={'台北市':'中正 大同 中山 松山 大安 萬華 信義 士林 北投 內湖 南港 文山',
+  '新北市':'萬里 金山 板橋 汐止 深坑 石碇 瑞芳 平溪 雙溪 貢寮 新店 坪林 烏來 永和 中和 土城 三峽 樹林 鶯歌 三重 新莊 泰山 林口 蘆洲 五股 八里 淡水 三芝 石門',
+  '桃園市':'中壢 平鎮 龍潭 楊梅 新屋 觀音 桃園 龜山 八德 大溪 復興 大園 蘆竹'};
+function findCityDist(flat){
+  flat=flat.replace(/臺/g,'台');
+  const m=flat.match(/([一-鿿]{2}[市縣])([一-鿿]{1,3}?[區鄉鎮市])/);
+  if(m&&/^(台北|新北|桃園|台中|台南|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|台東|澎湖|金門|連江)/.test(m[1])) return {city:m[1],dist:m[2]};
+  for(const c in DISTS) for(const d of DISTS[c].split(' ')) if(flat.includes(d+'區')) return {city:c,dist:d+'區'};
+  return {};
+}
+// 樓層的國字數字轉成阿拉伯數字：十三樓之一 → 13樓之1
+const cnFloor=a=>a.replace(/([一二三四五六七八九十]+)(?=樓|層)/g,x=>cnNum(x)||x).replace(/之([一二三四五六七八九十]+)/g,(m,x)=>'之'+(cnNum(x)||x));
+// 從「門牌／坐落」欄位取地址，補上縣市區；樓層若被 OCR 拆到下一行也接回來
+function getAddr(t,flat,labels){
+  const m=t.match(new RegExp('(?:'+labels+')[:：]?([^\\n]+)(?:\\n([\\d一二三四五六七八九十]+樓(?:之[\\d一二三四五六七八九十]+)?))?'));
+  if(!m) return {};
+  let a=cnFloor((m[1]+(m[2]&&!/樓/.test(m[1])?m[2]:'')).replace(/^[號碼:：]+/,'').replace(/臺/g,'台'));
+  const mm=a.match(new RegExp('^.*?'+ADDR_RE.source)); if(mm) a=mm[0];
+  const r=splitAddr(a);
+  if(!r.city){ const cd=findCityDist(flat); if(cd.dist){ r.city=cd.city; r.dist=cd.dist; r.addr=a.replace(cd.city,'').replace(cd.dist,'').replace(/^[一-鿿]{1,3}里/,'').replace(/^\d+鄰/,''); } }
+  return r;
+}
 function parseOcr(type,raw){
   const VAR={'税':'稅','巻':'巷','徼':'繳','衖':'弄','号':'號','楼':'樓','区':'區','乡':'鄉','镇':'鎮','县':'縣','门':'門'};
   const t=raw.normalize('NFKC').replace(/[税巻徼衖号楼区乡镇县门]/g,c=>VAR[c]).replace(/[ \t　]+/g,'');
@@ -377,13 +400,13 @@ function parseOcr(type,raw){
     o.acctNo=g(/帳號[:：]?([\d\-]{8,20})/,flat)||((flat.match(/\d[\d\-]{9,18}\d/g)||[]).sort((x,y)=>y.length-x.length)[0]||'');
   }
   if(type==='tax'){
-    o.taxNo=g(/稅籍編號[:：]?([\d\-]{8,20})/,flat).replace(/\D/g,'')||((flat.match(/\b\d{12}\b/)||[''])[0]);
-    const a=g(/(?:房屋坐落|坐落|門牌)[:：]?([^\n]+)/); if(a){ const m=a.match(new RegExp('^.*?'+ADDR_RE.source)); Object.assign(o,splitAddr(m?m[0]:a)); }
+    o.taxNo=g(/稅籍編號[:：]?([A-Z\d\-]{8,20})/,flat).replace(/[^A-Z\d]/g,'')||((flat.match(/\b\d{12}\b/)||[''])[0]);
+    Object.assign(o,getAddr(t,flat,'房屋坐落|坐落地址|門牌號碼|門牌號|門牌|坐落'));
   }
   if(type==='deed'){
-    const a=g(/建物門牌[:：]?([^\n]+)/)||g(/門牌[:：]?([^\n]+)/); if(a){ const m=a.match(new RegExp('^.*?'+ADDR_RE.source)); Object.assign(o,splitAddr(m?m[0]:a)); }
+    Object.assign(o,getAddr(t,flat,'建物門牌|門牌號碼|門牌號|門牌'));
     o.area=g(/總面積[:：]?\**([\d,]+\.\d+)/,flat).replace(/,/g,'');
-    const f=flat.match(/層數[:：]?([\d一二三四五六七八九十]+)層/); if(f) o.floors=cnNum(f[1]);
+    const f=flat.match(/層數[:：]?([\d一二三四五六七八九十]+)層/); if(f) o.floors=String(parseInt(cnNum(f[1]),10)||'');
     const e=flat.match(/(最高限額抵押權|普通抵押權|抵押權|地上權|典權)/); if(e&&/他項權利/.test(flat)){ o.encumb='是'; o.encumbType=e[1]; }
     if(/查封|假扣押|假處分|禁止處分/.test(flat)) o.seizure='是';
   }
