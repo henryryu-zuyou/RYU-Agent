@@ -73,6 +73,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .slot li{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;color:var(--muted);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
 .slot li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slot li button{border:0;background:none;color:var(--muted);cursor:pointer}
+.slot .tag{font-style:normal;font-weight:500;font-size:.78rem;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 8px;margin-left:4px;white-space:nowrap}
+.ocr{flex-basis:100%;font-size:.86rem;color:var(--muted)}
+.ocr.ok{color:var(--accent);font-weight:600}
+.f.auto input,.f.auto select,.f.auto .opts label:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.f.auto>label.l::after{content:'📷 照片帶入，請確認';font-weight:500;font-size:.78rem;color:var(--accent);margin-left:6px}
 .resume{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;border:1px solid var(--accent);border-radius:10px;padding:10px 14px;margin:0 0 16px;font-size:.95rem}
 .resume[hidden]{display:none}
 .resume button{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:8px;padding:6px 12px;font:inherit;font-size:.88rem;cursor:pointer}
@@ -89,8 +94,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 </header>
 
 <div class="notice">
-  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。文件可以在最後一區直接上傳，填完按下方「送出給承辦人」即可。<br>
-  <b>隱私說明：</b>送出後，資料與文件只會存進租寓公司的 Google 雲端硬碟，僅承辦同仁可以查看。填寫途中關掉頁面，已填的文字會自動保留（上傳的檔案需重新選擇）。
+  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。建議先在第 1 區上傳身分證、存摺、權狀、稅單照片，系統會自動幫您填入資料，再逐項確認後按下方「送出給承辦人」。<br>
+  <b>隱私說明：</b>上傳的照片會交由 AI 辨識服務讀取文字，只用來自動填寫。送出後，資料與文件只會存進租寓公司的 Google 雲端硬碟，僅承辦同仁可以查看。填寫途中關掉頁面，已填的文字會自動保留（上傳的檔案需重新選擇）。
 </div>
 
 <div class="resume" id="resume" hidden><span id="resumeMsg"></span><button type="button" id="restart">重新填寫</button></div>
@@ -125,7 +130,12 @@ const YN=['是','否'], YNU=['是','否','不確定'], CAN=['可','不可'], HAS
 const FIX=['委託人（屋主）修繕後交屋','委託租寓修繕','其他'];
 const FREQ=['月繳','季繳','半年繳','年繳','其他'], PAYER=['屋主','房客'];
 const S=[
- {id:'s1',no:'1',title:'屋主（委託人）基本資料',sub:'會印在合約甲方欄位。',fields:[
+ {id:'s1',no:'1',title:'上傳文件（拍照自動填寫）',sub:'先上傳身分證、存摺、權狀／謄本、房屋稅單，系統會自動幫您填入下方資料，之後再請逐項確認。',fields:[
+  {k:'uploads',l:'上傳文件',t:'files',full:1,h:'可直接拍照或選擇照片／PDF，每一項可放多個檔案。標示「📷 自動填寫」的文件會幫您帶入資料。不方便上傳的，之後用 LINE 傳給承辦人也可以。中途離開頁面的話，已選的檔案需要重新選擇（文字內容會保留）。',o:[
+    '身分證正反面（必要）','房屋權狀','建物第一類謄本','最新房屋稅單','存摺封面',
+    '近期水費、電費、瓦斯費帳單','車位權狀或分管協議','公寓大廈規約／管委會規定','其他文件']}
+ ]},
+ {id:'s2',no:'2',title:'屋主（委託人）基本資料',sub:'會印在合約甲方欄位。',fields:[
   {k:'name',l:'姓名／公司名稱',t:'text',r:1},
   {k:'idno',l:'身分證字號／統一編號',t:'text',r:1,h:'自然人填 10 碼身分證字號；法人填 8 碼統一編號',chk:'id'},
   {k:'regAddr',l:'戶籍地址',t:'text',r:1,full:1},
@@ -136,7 +146,7 @@ const S=[
   {k:'lineId',l:'LINE ID',t:'text',h:'選填，方便聯繫'},
   {k:'tz',l:'目前所在國家／時區',t:'text',h:'選填，方便約時間聯絡'}
  ]},
- {id:'s2',no:'2',title:'房屋標的',sub:'請依房屋稅單或權狀填寫。',fields:[
+ {id:'s3',no:'3',title:'房屋標的',sub:'請依房屋稅單或權狀填寫。',fields:[
   {k:'city',l:'縣市',t:'select',o:['桃園市','新北市','台北市','其他'],r:1},
   {k:'dist',l:'鄉鎮市區',t:'text',r:1,h:'例：龜山區'},
   {k:'addr',l:'門牌（路街／段／巷／弄／號／樓／之）',t:'text',r:1,full:1,h:'例：文化二路 34 巷 14 弄 6 號 6 樓之 2'},
@@ -163,7 +173,7 @@ const S=[
   {k:'motoNo',l:'機車位編號',t:'text',when:f=>f.moto==='有'},
   {k:'motoQty',l:'數量',t:'number',when:f=>f.moto==='有'}
  ]},
- {id:'s3',no:'3',title:'水電瓦斯網路',sub:'整層住家的水費、電費請選「依帳單」。不確定的項目可以留空，承辦人會再跟您確認。',fields:[
+ {id:'s4',no:'4',title:'水電瓦斯網路',sub:'整層住家的水費、電費請選「依帳單」。不確定的項目可以留空，承辦人會再跟您確認。',fields:[
   {k:'water',l:'水費計算方式',t:'radio',o:['依帳單','依比例拆算','固定費用','不確定']},
   {k:'waterNote',l:'水費說明（拆算方式／固定金額）',t:'text',when:f=>['依比例拆算','固定費用'].includes(f.water)},
   {k:'elec',l:'電費計算方式',t:'radio',o:['依帳單','依電表度數','固定費用','不確定']},
@@ -176,7 +186,7 @@ const S=[
   {k:'netAcct',l:'網路帳號',t:'text',when:f=>f.net==='有'},
   {k:'netPwd',l:'網路密碼',t:'text',when:f=>f.net==='有'}
  ]},
- {id:'s4',no:'4',title:'委託期間與租金撥款帳戶',sub:'租金會撥入此帳戶。',fields:[
+ {id:'s5',no:'5',title:'委託期間與租金撥款帳戶',sub:'租金會撥入此帳戶。',fields:[
   {k:'start',l:'希望起代管日',t:'date',r:1},
   {k:'years',l:'委託年限（年）',t:'number',r:1,h:'例：2'},
   {k:'bank',l:'銀行',t:'text',r:1,h:'例：國泰世華銀行'},
@@ -189,7 +199,7 @@ const S=[
   {k:'tenantDep',l:'屋主目前手上持有的押金（元）',t:'number',when:f=>f.tenant==='是',h:'與現有房客簽約時已交付屋主的押金'},
   {k:'tenantNote',l:'現有房客租約說明',t:'text',full:1,when:f=>f.tenant==='是',h:'例：租約到期日、目前月租'}
  ]},
- {id:'s5',no:'5',title:'房屋現況確認',sub:'依法須在合約中如實告知，請您逐項確認。',fields:[
+ {id:'s6',no:'6',title:'房屋現況確認',sub:'依法須在合約中如實告知，請您逐項確認。',fields:[
   {k:'leak',l:'是否有滲漏水',t:'radio',o:YNU,r:1,full:1},
   {k:'leakWhere',l:'滲漏水位置',t:'text',when:f=>f.leak==='是'},
   {k:'leakFix',l:'處理方式',t:'radio',o:FIX,when:f=>f.leak==='是'},
@@ -213,7 +223,7 @@ const S=[
   {k:'arrears',l:'目前是否有積欠管理費',t:'radio',o:YN,full:1},
   {k:'arrearsAmt',l:'積欠金額（元）',t:'number',r:1,when:f=>f.arrears==='是'}
  ]},
- {id:'s6',no:'6',title:'出租偏好',sub:'讓我們依照您的想法招租。',fields:[
+ {id:'s7',no:'7',title:'出租偏好',sub:'讓我們依照您的想法招租。',fields:[
   {k:'ptype',l:'出租方式',t:'radio',o:['整層出租','分間出租（套房／雅房）'],r:1,full:1},
   {k:'rents',l:'期望月租金',t:'rep',r:1,cols:[['name','名稱（整層可留空，分租請填房號）','text'],['rent','期望月租金（元）','number']],full:1},
   {k:'furniture',l:'現有家具處理方式',t:'radio',o:['可提供家具','可換現況家具','現況出租','可丟棄','其他'],full:1},
@@ -246,15 +256,14 @@ const S=[
   {k:'shortNote',l:'短租租金調整說明',t:'text',when:f=>f.short==='可'},
   {k:'keys',l:'鑰匙交付',t:'text',full:1,h:'可交付幾副、預計如何交付（例：請家人轉交、放管理室）'}
  ]},
- {id:'s7',no:'7',title:'簽約文件與備註',sub:'合約準備好後，我們會透過 LINE 傳送線上簽署連結給您。',fields:[
-  {k:'uploads',l:'上傳文件',t:'files',full:1,h:'可直接拍照或選擇照片／PDF，每一項可放多個檔案。不方便上傳的，之後用 LINE 傳給承辦人也可以。填寫中途離開頁面的話，已選的檔案需要重新選擇（文字內容會保留）。',o:[
-    '身分證正反面（必要）','房屋權狀','建物第一類謄本','最新房屋稅單','存摺封面',
-    '近期水費、電費、瓦斯費帳單','車位權狀或分管協議','公寓大廈規約／管委會規定','其他文件']},
+ {id:'s8',no:'8',title:'其他備註',sub:'合約準備好後，我們會透過 LINE 傳送線上簽署連結給您。',fields:[
   {k:'memo',l:'其他想告訴我們的事',t:'textarea',full:1}
  ]}
 ];
 
 /* ---------- helpers ---------- */
+// 上傳格（依 uploads 選項順序）→ 可自動填寫的文件類型
+const DOCMAP={0:'id',1:'deed',2:'deed',3:'tax',4:'passbook'};
 const $=s=>document.querySelector(s);
 const has=(v,x)=>Array.isArray(v)&&v.includes(x);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -288,7 +297,7 @@ function fieldHTML(f){
     const ty=f.t==='radio'?'radio':'checkbox';
     ctl=`<div class="opts" id="${f.k}">${f.o.map(o=>`<label><input type="${ty}" name="${f.k}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;
   } else if(f.t==='files'){
-    return `<div class="f full" data-k="${f.k}"><label class="l">${esc(f.l)}</label>${hint}<div class="slots">${f.o.map((o,i)=>`<div class="slot" data-slot="${i}"><span class="sl">${esc(o)}</span><label class="pick">＋ 選擇檔案<input type="file" multiple accept="image/*,application/pdf" data-slot="${i}"></label><ul></ul></div>`).join('')}</div></div>`;
+    return `<div class="f full" data-k="${f.k}"><label class="l">${esc(f.l)}</label>${hint}<div class="slots">${f.o.map((o,i)=>`<div class="slot" data-slot="${i}"><span class="sl">${esc(o)}${DOCMAP[i]?' <em class="tag">📷 自動填寫</em>':''}</span><label class="pick">＋ 選擇檔案<input type="file" multiple accept="image/*,application/pdf" data-slot="${i}"></label><ul></ul><div class="ocr" hidden></div></div>`).join('')}</div></div>`;
   } else if(f.t==='rep'){
     return `<div class="rep f" data-k="${f.k}"><label class="l">${esc(f.l)}${req}</label>${hint}
       <div class="rows"></div><div><button type="button" class="btn sec small" data-add="${f.k}">＋ 新增一列</button></div>
@@ -297,6 +306,52 @@ function fieldHTML(f){
   return `<div class="f${f.full?' full':''}" data-k="${f.k}">${lab}${ctl}${hint}<span class="errmsg">此欄必填</span></div>`;
 }
 form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('');
+
+/* ---------- 拍照自動填寫（/api/sign-form-extract → Claude 讀取） ---------- */
+const FIELDKEYS={id:['name','idno','regAddr'],passbook:['bank','branch','acctName','acctNo'],
+  deed:['city','dist','addr','area','floors','encumb','encumbType','seizure'],tax:['taxNo','city','dist','addr']};
+const blobB64=b=>new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(b);});
+async function smallPayload(file){
+  if(file.type==='application/pdf') return file.size<=2.8*1048576?{mime:'application/pdf',data:await blobB64(file)}:null;
+  try{
+    const bmp=await createImageBitmap(file),k=Math.min(1,1600/Math.max(bmp.width,bmp.height));
+    const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+    c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    const out=await new Promise(r=>c.toBlob(r,'image/jpeg',0.82));
+    return out?{mime:'image/jpeg',data:await blobB64(out)}:null;
+  }catch(e){return null;}
+}
+function applyFields(type,got){
+  const d=read(),filled=[];
+  for(const k of FIELDKEYS[type]){
+    let v=got[k]; if(!v) continue;
+    const f=ALL.find(x=>x.k===k); if(!f||filled.includes(f.l)) continue;
+    const cur=d[k]; if(Array.isArray(cur)?cur.length:cur) continue; // 已填的不覆蓋
+    if(f.t==='radio'){ const r=form.querySelector(`input[name="${k}"][value="${CSS.escape(v)}"]`); if(!r) continue; r.checked=true; }
+    else if(f.t==='select'){
+      v=v.replace(/^臺/,'台');
+      if(f.o.includes(v)) form.elements[k].value=v;
+      else { form.elements[k].value='其他'; const dist=form.elements.dist; if(dist&&got.dist&&!dist.value){ dist.value=v+got.dist; got.dist=''; } }
+    }
+    else { if(f.t==='number'){ v=(String(v).match(/[\d.]+/)||[''])[0]; if(!v) continue; } form.elements[k].value=v; }
+    form.querySelector(`[data-k="${k}"]`).classList.add('auto'); filled.push(f.l.replace(/（.*?）/g,''));
+  }
+  refresh(); save(); return filled;
+}
+async function runExtract(i,files){
+  const type=DOCMAP[i],st=form.querySelector(`.slot[data-slot="${i}"] .ocr`);
+  st.hidden=false; st.className='ocr'; st.textContent='📷 正在從照片讀取資料…';
+  const payload=[]; for(const f of files.slice(0,4)){ const p=await smallPayload(f); if(p) payload.push(p); }
+  if(!payload.length){ st.textContent='這個檔案無法自動讀取（可改拍 JPG 照片），請手動填寫對應欄位；檔案仍會在送出時上傳。'; return; }
+  try{
+    const r=await fetch('/api/sign-form-extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({docType:type,files:payload})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'failed');
+    const filled=applyFields(type,j.fields||{});
+    if(filled.length){ st.classList.add('ok'); st.textContent='✓ 已帶入：'+filled.join('、')+'。請到下方欄位確認是否正確。'; }
+    else st.textContent='沒有讀到可以帶入的資料（照片可能不清楚，或欄位已經填過），請手動確認。';
+  }catch(e){ st.textContent='自動填寫暫時無法使用，請手動填寫；檔案仍會在送出時上傳。'; }
+}
+form.addEventListener('input',e=>{ const c=e.target.closest&&e.target.closest('.f.auto'); if(c) c.classList.remove('auto'); });
 
 const UP={}; // slot index -> File[]（檔案不會存進草稿）
 const FSLOTS=S.flatMap(s=>s.fields).find(f=>f.t==='files').o;
@@ -307,7 +362,9 @@ function renderSlot(i){
 form.addEventListener('change',e=>{
   const i=e.target.dataset&&e.target.dataset.slot; if(i==null||e.target.type!=='file')return;
   for(const f of e.target.files){ if(f.size>20*1048576){alert(f.name+' 超過 20MB，請改用 LINE 傳送');continue;} (UP[i]=UP[i]||[]).push(f); }
+  const added=[...e.target.files].filter(f=>f.size<=20*1048576);
   e.target.value=''; renderSlot(i);
+  if(DOCMAP[i]&&added.length) runExtract(i,added);
 });
 form.addEventListener('click',e=>{
   const r=e.target.dataset&&e.target.dataset.rm; if(!r)return;
@@ -372,10 +429,10 @@ function validate(d){
     if(f.r&&!filled(f,d)){el.classList.add('bad');errs.push([f,`第 ${f.sec.no} 區｜${f.l||f.o[0]}`]);continue;}
     if(f.chk==='id'&&d[f.k]){
       const ok=twIdOk(d[f.k]);
-      if(ok===false){el.classList.add('bad');el.querySelector('.errmsg').textContent='檢查碼不正確，請再確認一次';errs.push([f,`第 1 區｜身分證字號／統編檢查碼不正確`]);}
+      if(ok===false){el.classList.add('bad');el.querySelector('.errmsg').textContent='檢查碼不正確，請再確認一次';errs.push([f,`第 ${f.sec.no} 區｜身分證字號／統編檢查碼不正確`]);}
       else el.querySelector('.errmsg').textContent='此欄必填';
     }
-    if(f.t==='email'&&d[f.k]&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d[f.k])){el.classList.add('bad');el.querySelector('.errmsg').textContent='Email 格式不正確';errs.push([f,'第 1 區｜Email 格式不正確']);}
+    if(f.t==='email'&&d[f.k]&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d[f.k])){el.classList.add('bad');el.querySelector('.errmsg').textContent='Email 格式不正確';errs.push([f,`第 ${f.sec.no} 區｜Email 格式不正確`]);}
   }
   return errs;
 }
