@@ -73,6 +73,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .slot li{display:flex;justify-content:space-between;gap:8px;font-size:.88rem;color:var(--muted);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
 .slot li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slot li button{border:0;background:none;color:var(--muted);cursor:pointer}
+.resume{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;border:1px solid var(--accent);border-radius:10px;padding:10px 14px;margin:0 0 16px;font-size:.95rem}
+.resume[hidden]{display:none}
+.resume button{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:8px;padding:6px 12px;font:inherit;font-size:.88rem;cursor:pointer}
 .sent{background:var(--accent-soft);border-radius:10px;padding:12px 14px;margin-bottom:12px}
 .sent b{color:var(--accent)}
 @media (max-width:560px){.grid{grid-template-columns:1fr}.f.full{grid-column:auto}}
@@ -89,6 +92,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
   <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。文件可以在最後一區直接上傳，填完按下方「送出給承辦人」即可。<br>
   <b>隱私說明：</b>送出後，資料與文件只會存進租寓公司的 Google 雲端硬碟，僅承辦同仁可以查看。填寫途中關掉頁面，已填的文字會自動保留（上傳的檔案需重新選擇）。
 </div>
+
+<div class="resume" id="resume" hidden><span id="resumeMsg"></span><button type="button" id="restart">重新填寫</button></div>
 
 <form id="form" novalidate></form>
 
@@ -242,7 +247,7 @@ const S=[
   {k:'keys',l:'鑰匙交付',t:'text',full:1,h:'可交付幾副、預計如何交付（例：請家人轉交、放管理室）'}
  ]},
  {id:'s7',no:'7',title:'簽約文件與備註',sub:'合約準備好後，我們會透過 LINE 傳送線上簽署連結給您。',fields:[
-  {k:'uploads',l:'上傳文件',t:'files',full:1,h:'可直接拍照或選擇照片／PDF，每一項可放多個檔案。不方便上傳的，之後用 LINE 傳給承辦人也可以。',o:[
+  {k:'uploads',l:'上傳文件',t:'files',full:1,h:'可直接拍照或選擇照片／PDF，每一項可放多個檔案。不方便上傳的，之後用 LINE 傳給承辦人也可以。填寫中途離開頁面的話，已選的檔案需要重新選擇（文字內容會保留）。',o:[
     '身分證正反面（必要）','房屋權狀','建物第一類謄本','最新房屋稅單','存摺封面',
     '近期水費、電費、瓦斯費帳單','車位權狀或分管協議','公寓大廈規約／管委會規定','其他文件']},
   {k:'memo',l:'其他想告訴我們的事',t:'textarea',full:1}
@@ -351,10 +356,10 @@ function refresh(){
     el.classList.toggle('hide',!vis);
     if(vis&&f.r){tot++;if(filled(f,d))done++;}
   }
-  $('#prog').textContent=`必填完成 ${done} / ${tot}`;
+  $('#prog').textContent=`必填完成 ${done} / ${tot}`+(savedAt?'　✓ 已自動儲存':'');
   return d;
 }
-let t;function save(){clearTimeout(t);t=setTimeout(()=>{try{const d=read();delete d.uploads;localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}},300);}
+let t,savedAt=0;function save(){clearTimeout(t);t=setTimeout(()=>{try{const d=read();delete d.uploads;d._t=Date.now();localStorage.setItem(KEY,JSON.stringify(d));savedAt=d._t;if(!sending)refresh();}catch(e){}},300);}
 form.addEventListener('input',()=>{refresh();save();});
 form.addEventListener('change',()=>{refresh();save();});
 
@@ -465,10 +470,17 @@ $('#dl').onclick=()=>{
 };
 $('#clear').onclick=()=>{
   if(!$('#clear').dataset.arm){$('#clear').dataset.arm='1';$('#clear').textContent='再按一次確認清除';setTimeout(()=>{delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';},3000);return;}
-  try{localStorage.removeItem(KEY);}catch(e){}
-  form.reset();form.querySelectorAll('.rows').forEach(r=>r.innerHTML='');init(true);
-  delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';$('#result').style.display='none';$('#errors').style.display='none';Object.keys(UP).forEach(k=>{UP[k]=[];renderSlot(k);});sentOnce=false;
+  delete $('#clear').dataset.arm;$('#clear').textContent='清除重填';
+  doClear();
 };
+function doClear(){
+  try{localStorage.removeItem(KEY);}catch(e){}
+  savedAt=0;$('#resume').hidden=true;
+  form.reset();form.querySelectorAll('.rows').forEach(r=>r.innerHTML='');init(true);
+  $('#result').style.display='none';$('#errors').style.display='none';Object.keys(UP).forEach(k=>{UP[k]=[];renderSlot(k);});sentOnce=false;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$('#restart').onclick=()=>{ if(confirm('確定要清除已填寫的內容，從頭開始填寫嗎？')) doClear(); };
 
 /* ---------- 分享連結（手機 LINE 內建瀏覽器常沒有網址列） ---------- */
 $('#share').onclick=async()=>{
@@ -485,7 +497,16 @@ $('#share').onclick=async()=>{
 /* ---------- init ---------- */
 function init(fresh){
   let d=null;if(!fresh){try{d=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}}
-  if(d) write(d);
+  if(d){
+    write(d);
+    const any=Object.entries(d).some(([k,v])=>k!=='_t'&&(Array.isArray(v)?v.some(x=>x&&(typeof x!=='object'||Object.values(x).some(Boolean))):!!v));
+    if(any){
+      savedAt=d._t||Date.now();
+      const tt=d._t?new Date(d._t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}):'';
+      $('#resumeMsg').textContent='✓ 已帶入您上次填寫的內容'+(tt?`（${tt} 儲存）`:'')+'，可以接著繼續填寫。';
+      $('#resume').hidden=false;
+    }
+  }
   for(const k in REP){ if(!form.querySelector(`[data-k="${k}"] .rep-row`)) { addRow(k); if(k==='equip'){addRow(k);addRow(k);} } }
   refresh();
 }
