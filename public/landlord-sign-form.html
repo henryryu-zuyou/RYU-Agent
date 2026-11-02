@@ -355,7 +355,18 @@ function parseOcr(type,raw){
   const o={};
   if(type==='id'){
     const ids=(flat.match(/[A-Z][1289]\d{8}/g)||[]).filter(x=>twIdOk(x)!==false); if(ids[0]) o.idno=ids[0];
-    o.name=g(/姓名[:：]?([一-鿿]{2,4})/);
+    // 姓名：OCR 常把「姓名」標籤和名字拆成不同行，甚至順序打亂；只在正面（有身分證字號那張）找，避免抓到背面的父母配偶
+    const STOP=/中華|民國|國民|身分|姓名|出生|年月|性別|統一|編號|發證|日期|補發|換發|初發|配偶|役別|住址|出生地|[市縣區鄉鎮里鄰]$|^[男女父母]/;
+    const segs=t.split('\f'), front=segs.find(x=>/[A-Z][1289]\d{8}|出生年月日|發證日期/.test(x))||t;
+    const okName=x=>/^[一-鿿]{2,4}$/.test(x)&&!STOP.test(x);
+    let nm=g(/姓名[:：]?([一-鿿]{2,10})/,front).replace(/(出生|性別|統一|發證|年月|民國).*$/,''); if(!okName(nm)) nm='';
+    if(!nm){
+      const L=front.split('\n').map(x=>x.replace(/[^一-鿿]/g,'')).filter(Boolean);
+      const at=L.findIndex(x=>/姓名$/.test(x));
+      if(at>=0) nm=L.slice(at+1,at+4).find(okName)||'';
+      if(!nm) nm=L.find(okName)||'';
+    }
+    o.name=nm;
     const a=flat.match(/住址[:：]?([一-鿿\d之\-]+?號(?:[\d之\-]*樓)?(?:之\d+)?)/); if(a) o.regAddr=a[1].replace(/臺/g,'台');
   }
   if(type==='passbook'){
@@ -385,7 +396,7 @@ async function runExtract(i,files){
   let text='',tried=0;
   for(const f of files.slice(0,3)){
     const p=await smallPayload(f); if(!p) continue; tried++;
-    try{ const j=await gas({action:'ocr',...p}); text+='\n'+(j.text||''); }catch(e){}
+    try{ const j=await gas({action:'ocr',...p}); text+='\n\f\n'+(j.text||''); }catch(e){}
   }
   if(!tried){ st.textContent='這個檔案無法自動讀取（可改拍 JPG 照片），請手動填寫對應欄位；檔案仍會在送出時上傳。'; return; }
   if(!text.trim()){ st.textContent='自動填寫暫時無法使用，請手動填寫；檔案仍會在送出時上傳。'; return; }
