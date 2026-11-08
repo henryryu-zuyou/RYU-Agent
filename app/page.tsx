@@ -111,6 +111,12 @@ export default function Home() {
           desc: "權狀、契約影本蓋浮水印；照片不上傳",
           isPublic: true,
         },
+        {
+          href: "/payout-timeline",
+          icon: "📅",
+          title: "代管撥款時間軸",
+          desc: "輸入契約條件，算出收租與撥款時間，產生給屋主的說明",
+        },
       ],
     },
     {
