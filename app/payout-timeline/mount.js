@@ -143,7 +143,10 @@ function cardSign(r){
   return `<div class="ev"><div class="t"><span class="lt">收款</span>${title}${amt?' '+fmt(amt):''}</div><div class="s">${s}</div></div>`;
 }
 function cardCol(p,r){
-  return `<div class="ev"><div class="t"><span class="lt">收租</span>收第${p.k+1}期租金 ${fmt(r.rent)}${r.mg?`＋管理費 ${fmt(r.mg)}`:''}</div><div class="s">租期 ${md(p.ps)}–${md(p.pe)}，${md(payoutDateOfKey(p.key,r))} 撥款</div></div>`;
+  // 管理費不含在租金內：標題顯示房客這期繳的總額，下面列出租金＋管理費
+  const t=r.mg?`收第${p.k+1}期租金＋管理費 ${fmt(r.rent+r.mg)}`:`收第${p.k+1}期租金 ${fmt(r.rent)}`;
+  const split=r.mg?`租金 ${fmt(r.rent)} + 管理費 ${fmt(r.mg)}<br>`:'';
+  return `<div class="ev"><div class="t"><span class="lt">收租</span>${t}</div><div class="s">${split}租期 ${md(p.ps)}–${md(p.pe)}，${md(payoutDateOfKey(p.key,r))} 撥款</div></div>`;
 }
 function cardPay(m,r){
   if(m.status==='empty')
@@ -198,7 +201,7 @@ function ownerNotes(r){
   const ms=r.months,L=['補充說明',''];
   L.push(`・每月代管費為租金的 10%（${fmt(r.fee)}），每月撥款＝租金 ${fmt(r.rent)}${r.mg?`＋管理費 ${fmt(r.mg)}`:''} − 代管費 ${fmt(r.fee)}＝${fmt(r.stable)}。`);
   if(r.mgIncl)L.push('・租金已包含管理費。');
-  else if(r.mg)L.push(`・管理費每月 ${fmt(r.mg)} 由房客連同租金繳給租寓，租寓會一併撥給您，管理費請您自行繳交管理處（管理費不收代管費）。`);
+  else if(r.mg)L.push(`・管理費每月 ${fmt(r.mg)} 由房客連同租金繳給租寓，租寓會一併撥給您。因管理費由您自行繳交管理處，代管費只以租金計算，不含管理費。`);
   const once=[];
   if(r.broker)once.push(`仲介服務費 ${fmt(r.broker)}`);
   ms.forEach(m=>m.extras.forEach(x=>once.push(`${x.name} ${fmt(x.amt)}`)));
