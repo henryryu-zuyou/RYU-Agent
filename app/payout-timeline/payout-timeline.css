@@ -114,7 +114,7 @@
 .pt .tbl th{font-weight:500;color:var(--muted);font-size:13px}
 .pt .tbl td.n{color:var(--neg)}
 .pt .tbl td.strong{font-weight:700}
-.pt textarea#msg{min-height:260px;line-height:1.7;resize:vertical}
+.pt textarea.msg{line-height:1.7;resize:vertical}
 .pt .msg-actions{display:flex;align-items:center;gap:12px;margin-top:10px}
 .pt .flash{font-size:13px;color:var(--collect)}
 .pt .empty-state{color:var(--muted);text-align:center;padding:40px 20px}

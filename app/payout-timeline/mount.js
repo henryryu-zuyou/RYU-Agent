@@ -38,6 +38,7 @@ const cn=n=>n<CN.length?CN[n]:String(n);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>Number(String(v??'').replace(/,/g,'').trim());
 function brokerFor(rent,term){return term>=24?rent:Math.round(rent*.5);}
+function normPeriods(p){p=parseInt(p);return p>=3&&p<=6?p:6;}
 function normTerm(t){t=parseInt(t);return t===24||t===36?t:12;}
 function termLabel(t){return t%12===0?(t/12)+' 年':t+' 個月';}
 
@@ -46,7 +47,7 @@ function compute(s){
   const sign=parseD(s.sign),start=parseD(s.start),rent=num(s.rent);
   if(!sign||!start||!(rent>0))return null;
   const term=normTerm(s.term);
-  const N=Math.min(parseInt(s.periods)||6,term);
+  const N=Math.min(normPeriods(s.periods),term);
   const payDay=Math.min(28,Math.max(1,parseInt(s.payDay)||5));
   const payoutDay=PAYOUT_DAY;
   const fee=Math.round(rent*FEE_RATE);
@@ -166,35 +167,46 @@ function timeline(r){
   return `<div class="lanes-head"><div class="lh-c">房客繳給租寓</div><div class="lh-p">租寓撥給屋主</div></div><div class="tl">${h}</div>`;
 }
 
-function explain(m,r){
-  if(m.status==='empty')return `${mLabel(m.key)}沒有租金收入。`;
-  const pos=[],neg=[];
-  m.rents.forEach(p=>pos.push(`${p.k===0?'首期':'第'+(p.k+1)+'期'}租金 ${fmt(r.rent)}`));
-  if(m.deposit)pos.push(`押金 ${fmt(m.deposit)}`);
-  if(m.broker)neg.push(`仲介服務費 ${fmt(m.broker)}`);
-  if(m.fees)neg.push(`代管費 ${fmt(m.fees)}`);
-  m.extras.forEach(x=>neg.push(`${x.name} ${fmt(x.amt)}`));
-  m.pending.forEach(n=>neg.push(`${n}（金額待確認）`));
-  if(m.carryIn)neg.push(`前期未扣完的 ${fmt(-m.carryIn)}`);
-  let s=pos.length?pos.join('、'):`${mLabel(m.key)}沒有租金收入`;
-  if(neg.length)s+=`，扣除${neg.join('、')}`;
-  s+=m.status==='neg'?`，不足的 ${fmt(-m.bal)} 會從下一期扣除。`:'。';
-  return s;
-}
-function message(r,name){
-  const L=[`屋主您好，${name?`「${name}」`:'本物件'}前幾期撥款如下：`,''];
-  const ms=r.months;let lastNon=-1;
-  ms.forEach((m,i)=>{if(!m.standard)lastNon=i;});
+/* ---------- 給屋主的文字（可直接複製） ---------- */
+// 日期：跟簽約同一年只寫月/日，跨年才帶年份
+const dS=(t,r)=>t.y===r.sign.y?md(t):ymd(t);
+function lastNonStd(r){let n=-1;r.months.forEach((m,i)=>{if(!m.standard)n=i;});return n;}
+function ownerTimeline(r,name){
+  const ms=r.months,lastNon=lastNonStd(r);
+  const ev=[];
+  ev.push({d:r.sign,o:0,t:`簽約（房客繳${r.dep?`押金 ${fmt(r.dep)}＋`:''}第 1 期租金 ${fmt(r.rent)}）`});
+  ev.push({d:r.start,o:1,t:`起租，租期 ${termLabel(r.term)}`});
   for(let i=0;i<=lastNon;i++){
     const m=ms[i];
-    const amt=m.payout>0?`預計 ${fmt(m.payout)}`:'$0';
-    const pend=m.payout>0&&m.pendAll.length?`（尚未扣除${m.pendAll.join('、')}）`:'';
-    L.push(`・${md(m.payDate)}：${amt}${pend}`,explain(m,r),'');
+    const pend=m.payout>0&&m.pendAll.length?`（另扣${m.pendAll.join('、')}，金額確認中）`:'';
+    ev.push({d:m.payDate,o:2,t:`撥款 ${fmt(m.payout)}${pend}`});
   }
-  if(lastNon<ms.length-1)L.push(`・${md(ms[lastNon+1].payDate)} 起：每月預計 ${fmt(r.stable)}`,'');
-  L.push(`房客每月 ${r.payDay} 日前繳租，我們會在隔月 5 日撥款給您（遇國定假日順延至下一個工作日）。每月 5 日的前一個工作日，會透過租寓官方 LINE 傳送代管表，實際金額以代管表為準。`);
-  if(r.owner&&r.dep)L.push('押金已於首期一併撥給您。房客退租時，請將押金退還給租寓，我們點交確認無誤後，再退還給房客。');
-  L.push('有任何問題歡迎聯繫，謝謝您！');
+  const nd=lastNon<ms.length-1?ms[lastNon+1].payDate:mk(ms[ms.length-1].payDate.y,ms[ms.length-1].payDate.m+1,r.payoutDay);
+  ev.sort((a,b)=>ser(a.d)-ser(b.d)||a.o-b.o);
+  const L=[`${name?`「${name}」`:'本物件'}撥款時間軸`,''];
+  ev.forEach((e,i)=>L.push(`・${i===0?ymd(e.d):dS(e.d,r)} ${e.t}`));
+  L.push(`・${dS(nd,r)} 起，每月撥款 ${fmt(r.stable)}`);
+  return L.join('\n');
+}
+function ownerNotes(r){
+  const ms=r.months,L=['補充說明',''];
+  L.push(`・每月代管費為租金的 10%（${fmt(r.fee)}），每月撥款＝租金 ${fmt(r.rent)} − 代管費 ${fmt(r.fee)}＝${fmt(r.stable)}。`);
+  const once=[];
+  if(r.broker)once.push(`仲介服務費 ${fmt(r.broker)}`);
+  ms.forEach(m=>m.extras.forEach(x=>once.push(`${x.name} ${fmt(x.amt)}`)));
+  if(once.length)L.push(`・一次性費用會從前幾期撥款中扣除：${once.join('、')}。`);
+  const short=ms.filter(m=>m.payout===0&&(m.rents.length||m.deposit));
+  if(short.length)L.push(`・${short.map(m=>dS(m.payDate,r)).join('、')} 的收入扣除上述費用後不足，撥款為 $0，未扣完的部分順延到下一期扣除。`);
+  const gap=ms.filter(m=>m.payout===0&&!m.rents.length&&!m.deposit);
+  if(gap.length)L.push(`・第 1 期租金已在簽約時預收，${gap.map(m=>mLabel(m.key)).join('、')}沒有新的租金入帳，所以 ${gap.map(m=>dS(m.payDate,r)).join('、')} 撥款為 $0。`);
+  ms.filter(m=>m.payout>0&&m.pendAll.length).forEach(m=>L.push(`・${m.pendAll.join('、')}金額確認後，會從 ${dS(m.payDate,r)} 的撥款中扣除。`));
+  if(r.dep){
+    if(r.owner){const dm=ms.find(m=>m.deposit);L.push(`・${dm?dS(dm.payDate,r)+' 的撥款含':'首期撥款含'}押金 ${fmt(r.dep)}。房客退租時，請將押金退還給租寓，點交確認無誤後，由租寓退還給房客。`);}
+    else L.push(`・押金 ${fmt(r.dep)} 由租寓保管，房客退租點交後退還。`);
+  }
+  L.push(`・房客每月 ${r.payDay} 日前繳租，租寓於隔月 5 日撥款給您（遇國定假日順延至下一個工作日）。`);
+  L.push('・每月 5 日的前一個工作日，會透過租寓官方 LINE 傳送代管表，實際金額以代管表為準。');
+  L.push('','有任何問題歡迎聯繫，謝謝您！');
   return L.join('\n');
 }
 function notes(r){
@@ -211,7 +223,7 @@ function notes(r){
   return n;
 }
 
-let lastMsg='';
+const ownerMsg={tl:'',nt:''};
 function render(){
   const res=$('#res');
   const r=compute(state);
@@ -228,31 +240,36 @@ function render(){
     const pend=m.pendAll.length?`<span class="pend"> − ${esc(m.pendAll.join('、'))}</span>`:'';
     return `<tr><td>${kLabel(m.key)}</td><td>${m.income?fmt(m.income):'—'}</td><td>${m.ded?fmt(-m.ded):'—'}${m.pending.length?`<span class="pend"> − 待確認</span>`:''}</td><td>${m.carryIn?fmt(m.carryIn):'—'}</td><td class="${m.bal<0?'n':''}">${fmt(m.bal)}</td><td>${ymd(m.payDate)}</td><td class="strong">${fmt(m.payout)}${m.payout>0?pend:''}</td></tr>`;
   }).join('');
-  lastMsg=message(r,(state.name||'').trim());
+  ownerMsg.tl=ownerTimeline(r,(state.name||'').trim());
+  ownerMsg.nt=ownerNotes(r);
+  const msgBox=(k,title)=>`<section class="box"><h2>${title}</h2>
+      <textarea class="msg" data-msg="${k}" readonly aria-label="${title}"></textarea>
+      <div class="msg-actions"><button type="button" class="btn primary" data-copy="${k}">複製</button>${k==='nt'?'<button type="button" class="btn" data-copy="all">兩段一起複製</button>':''}<span class="flash" aria-live="polite"></span></div>
+    </section>`;
   res.innerHTML=`
     <section class="box">${facts}</section>
+    ${msgBox('tl','給屋主：撥款時間軸')}
+    ${msgBox('nt','給屋主：補充說明')}
     <section class="box"><h2>收租與撥款時間軸</h2>${timeline(r)}</section>
     <section class="box"><h2>每月結算</h2><div class="tbl-wrap"><table class="tbl">
       <thead><tr><th>計費月份</th><th>收入</th><th>扣款</th><th>上月遞延</th><th>結算</th><th>撥款日</th><th>實撥</th></tr></thead>
-      <tbody>${rows}</tbody></table></div></section>
-    <section class="box"><h2>給屋主的說明</h2>
-      <textarea id="msg" readonly aria-label="給屋主的說明"></textarea>
-      <div class="msg-actions"><button type="button" class="btn primary" id="copy">複製說明</button><span class="flash" id="flash" aria-live="polite"></span></div>
-    </section>`;
-  $('#msg').value=lastMsg;
-  $('#copy').addEventListener('click',copyMsg);
+      <tbody>${rows}</tbody></table></div></section>`;
+  res.querySelectorAll('textarea.msg').forEach(t=>{const v=ownerMsg[t.dataset.msg];t.value=v;t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';});
+  res.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',copyMsg));
 }
-async function copyMsg(){
-  const fl=$('#flash');
-  try{await navigator.clipboard.writeText(lastMsg);}
-  catch(e){const t=$('#msg');t.removeAttribute('readonly');t.select();try{document.execCommand('copy');}catch(_){}t.setAttribute('readonly','');}
+async function copyMsg(e){
+  const k=e.currentTarget.dataset.copy;
+  const text=k==='all'?ownerMsg.tl+'\n\n'+ownerMsg.nt:ownerMsg[k];
+  const fl=e.currentTarget.parentNode.querySelector('.flash');
+  try{await navigator.clipboard.writeText(text);}
+  catch(_){const t=document.createElement('textarea');t.value=text;root.appendChild(t);t.select();try{document.execCommand('copy');}catch(_e){}t.remove();}
   fl.textContent='已複製';setTimeout(()=>{fl.textContent='';},1800);
 }
 
 /* ---------- 表單 ---------- */
 let state;
 function save(){try{localStorage.setItem(LS,JSON.stringify(state));}catch(e){}}
-function load(){try{const v=localStorage.getItem(LS);if(v){const o=JSON.parse(v);if(o&&typeof o==='object'){const s=Object.assign(clone(BLANK),o);s.term=String(normTerm(s.term));return s;}}}catch(e){}return clone(EXAMPLES.b);}
+function load(){try{const v=localStorage.getItem(LS);if(v){const o=JSON.parse(v);if(o&&typeof o==='object'){const s=Object.assign(clone(BLANK),o);s.term=String(normTerm(s.term));s.periods=String(normPeriods(s.periods));return s;}}}catch(e){}return clone(EXAMPLES.b);}
 
 function fillDays(sel){let h='';for(let i=1;i<=28;i++)h+=`<option value="${i}">${i} 日</option>`;sel.innerHTML=h;}
 fillDays($('#payDay'));

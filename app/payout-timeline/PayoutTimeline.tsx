@@ -105,9 +105,10 @@ export default function PayoutTimeline({ fontClass }: { fontClass: string }) {
                 <label className="f">
                   顯示期數
                   <select data-k="periods">
+                    <option value="3">前 3 期</option>
+                    <option value="4">前 4 期</option>
+                    <option value="5">前 5 期</option>
                     <option value="6">前 6 期</option>
-                    <option value="12">前 12 期</option>
-                    <option value="999">整個租期</option>
                   </select>
                 </label>
               </div>
