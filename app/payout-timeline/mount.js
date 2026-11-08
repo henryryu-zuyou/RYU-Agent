@@ -3,6 +3,8 @@
 //   1. 包成 mountPayoutTimeline(root)，查 DOM 一律限定在 root 內
 //   2. 事件監聽掛 AbortController，卸載時（含 React 開發模式的二次掛載）能拆乾淨
 //   3. 回傳 cleanup 給 useEffect
+import { toBlob } from 'html-to-image';
+
 export function mountPayoutTimeline(root){
 const ac=new AbortController();
 const on=(el,type,fn)=>el.addEventListener(type,fn,{signal:ac.signal});
@@ -240,6 +242,7 @@ function render(){
     const pend=m.pendAll.length?`<span class="pend"> − ${esc(m.pendAll.join('、'))}</span>`:'';
     return `<tr><td>${kLabel(m.key)}</td><td>${m.income?fmt(m.income):'—'}</td><td>${m.ded?fmt(-m.ded):'—'}${m.pending.length?`<span class="pend"> − 待確認</span>`:''}</td><td>${m.carryIn?fmt(m.carryIn):'—'}</td><td class="${m.bal<0?'n':''}">${fmt(m.bal)}</td><td>${ymd(m.payDate)}</td><td class="strong">${fmt(m.payout)}${m.payout>0?pend:''}</td></tr>`;
   }).join('');
+  const tlTitle=(state.name||'').trim()?`「${esc(state.name.trim())}」`:'';
   ownerMsg.tl=ownerTimeline(r,(state.name||'').trim());
   ownerMsg.nt=ownerNotes(r);
   const msgBox=(k,title)=>`<section class="box"><h2>${title}</h2>
@@ -250,12 +253,43 @@ function render(){
     <section class="box">${facts}</section>
     ${msgBox('tl','給屋主：撥款時間軸')}
     ${msgBox('nt','給屋主：補充說明')}
-    <section class="box"><h2>收租與撥款時間軸</h2>${timeline(r)}</section>
+    <section class="box" id="tlBox"><h2>${tlTitle}收租與撥款時間軸</h2>${timeline(r)}
+      <div class="msg-actions"><button type="button" class="btn primary" data-img="copy">複製圖片</button><button type="button" class="btn" data-img="download">下載圖片</button><span class="flash" aria-live="polite"></span></div>
+    </section>
     <section class="box"><h2>每月結算</h2><div class="tbl-wrap"><table class="tbl">
       <thead><tr><th>計費月份</th><th>收入</th><th>扣款</th><th>上月遞延</th><th>結算</th><th>撥款日</th><th>實撥</th></tr></thead>
       <tbody>${rows}</tbody></table></div></section>`;
   res.querySelectorAll('textarea.msg').forEach(t=>{const v=ownerMsg[t.dataset.msg];t.value=v;t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';});
   res.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',copyMsg));
+  res.querySelectorAll('[data-img]').forEach(b=>b.addEventListener('click',timelineImage));
+}
+// 時間軸圖片：固定用淺色主題、2 倍解析度，不含下方按鈕列
+function makeTimelineBlob(){
+  const box=$('#tlBox'),prev=root.getAttribute('data-theme');
+  root.setAttribute('data-theme','light');
+  root.classList.add('pt-capture'); // 先換成圖片會用的系統字型再量版面，避免字寬不同造成重疊
+  // skipFonts：不嵌入網頁中文字型（要抓上百個字型檔，會卡很久），圖片改用裝置內建中文字型
+  return toBlob(box,{pixelRatio:2,backgroundColor:'#FFFFFF',skipFonts:true,filter:n=>!(n.classList&&n.classList.contains('msg-actions'))})
+    .finally(()=>{root.classList.remove('pt-capture');if(prev===null)root.removeAttribute('data-theme');else root.setAttribute('data-theme',prev);});
+}
+function downloadBlob(blob){
+  const name=(state.name||'').trim();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`撥款時間軸${name?'-'+name:''}.png`;
+  root.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+async function timelineImage(e){
+  const mode=e.currentTarget.dataset.img,fl=e.currentTarget.parentNode.querySelector('.flash');
+  fl.textContent='產生圖片中…';
+  const p=makeTimelineBlob(); // Safari 要求在點擊當下就把 Promise 交給 ClipboardItem
+  if(mode==='copy'&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
+    try{await navigator.clipboard.write([new ClipboardItem({'image/png':p})]);fl.textContent='已複製圖片';setTimeout(()=>{fl.textContent='';},2500);return;}
+    catch(_){/* 不支援就改下載 */}
+  }
+  const blob=await p.catch(()=>null);
+  if(!blob){fl.textContent='產生圖片失敗，請再試一次';return;}
+  downloadBlob(blob);
+  fl.textContent=mode==='copy'?'此瀏覽器無法直接複製，已改為下載圖片':'已下載圖片';
+  setTimeout(()=>{fl.textContent='';},3000);
 }
 async function copyMsg(e){
   const k=e.currentTarget.dataset.copy;
