@@ -17,7 +17,7 @@ const EXAMPLES={
   b:{name:'',sign:'2026-11-08',start:'2026-11-16',term:'24',rent:'21500',payDay:'20',depMonths:'2',depHolder:'owner',periods:'6',
      extras:[{name:'水電瓦斯結清',amount:'',month:'2026-11'}]}
 };
-const BLANK={name:'',sign:'',start:'',term:'12',rent:'',payDay:'5',depMonths:'2',depHolder:'zuyou',periods:'6',extras:[]};
+const BLANK={name:'',sign:'',start:'',term:'12',rent:'',payDay:'5',depMonths:'2',depHolder:'zuyou',periods:'6',mgmtMode:'incl',mgmt:'',extras:[]};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const $=s=>root.querySelector(s);
 
@@ -53,6 +53,8 @@ function compute(s){
   const payDay=Math.min(28,Math.max(1,parseInt(s.payDay)||5));
   const payoutDay=PAYOUT_DAY;
   const fee=Math.round(rent*FEE_RATE);
+  const mg=s.mgmtMode==='excl'?Math.max(0,num(s.mgmt)||0):0; // 不含在租金內的管理費：隨租金收、隨撥款給屋主，不抽代管費
+  const mgIncl=s.mgmtMode!=='excl';
   const depM=Math.max(0,parseInt(s.depMonths)||0);
   const dep=rent*depM;
   const broker=brokerFor(rent,term);
@@ -87,7 +89,7 @@ function compute(s){
   const list=[];let carry=0,pend=[];
   for(let k=keys[0];k<=last;k=keyAdd(k,1)){
     const m=ens(k);
-    const income=m.rents.length*rent+m.deposit;
+    const income=m.rents.length*(rent+mg)+m.deposit;
     const fees=m.rents.length*fee;
     const ex=m.extras.reduce((a,b)=>a+b.amt,0);
     const ded=m.broker+fees+ex;
@@ -103,13 +105,14 @@ function compute(s){
     r.standard=m.rents.length===1&&!m.deposit&&!m.broker&&!m.extras.length&&!m.pending.length&&!r.carryIn&&!r.pendIn.length;
     list.push(r);
   }
-  return {sign,start,rent,term,N,payDay,payoutDay,fee,dep,depM,broker,owner,prepaid,periods,months:list,endCarry:carry,endPend:pend,stable:rent-fee};
+  return {sign,start,rent,term,N,payDay,payoutDay,fee,dep,depM,broker,owner,prepaid,periods,months:list,endCarry:carry,endPend:pend,stable:rent+mg-fee,mg,mgIncl};
 }
 
 /* ---------- 畫面 ---------- */
 function bdRows(m,r){
   const rows=[];
   m.rents.forEach(p=>rows.push([`第${p.k+1}期租金`,r.rent]));
+  if(r.mg)m.rents.forEach(p=>rows.push([`管理費（第${p.k+1}期）`,r.mg]));
   if(m.deposit)rows.push([`押金（${cn(r.depM)}個月）`,m.deposit]);
   if(m.broker)rows.push(['仲介服務費',-m.broker]);
   if(r.fee)m.rents.forEach(p=>rows.push([`代管費（第${p.k+1}期）`,-r.fee]));
@@ -129,17 +132,18 @@ function payoutDateOfKey(k,r){const[y,m]=k.split('-').map(Number);return mk(y,m+
 function cardSign(r){
   const p0=r.periods[0];
   let title=r.prepaid?(r.depM?`簽約，收${cn(r.depM)}押一租`:'簽約，收首期租金'):(r.depM?'簽約，收押金':'簽約');
-  const amt=(r.prepaid?r.rent:0)+r.dep;
+  const amt=(r.prepaid?r.rent+r.mg:0)+r.dep;
   const parts=[];
   if(r.depM)parts.push(`押金 ${fmt(r.dep)}`);
   if(r.prepaid)parts.push(`第1期 ${fmt(r.rent)}`);
+  if(r.prepaid&&r.mg)parts.push(`管理費 ${fmt(r.mg)}`);
   let s=parts.join(' + ');
   if(r.prepaid)s+=`<br>第1期租期 ${md(p0.ps)}–${md(p0.pe)}，原 ${md(p0.due)} 應繳`;
   if(r.depM)s+=`<br>押金${r.owner?'於首期撥給屋主':'由租寓保管'}`;
   return `<div class="ev"><div class="t"><span class="lt">收款</span>${title}${amt?' '+fmt(amt):''}</div><div class="s">${s}</div></div>`;
 }
 function cardCol(p,r){
-  return `<div class="ev"><div class="t"><span class="lt">收租</span>收第${p.k+1}期租金 ${fmt(r.rent)}</div><div class="s">租期 ${md(p.ps)}–${md(p.pe)}，${md(payoutDateOfKey(p.key,r))} 撥款</div></div>`;
+  return `<div class="ev"><div class="t"><span class="lt">收租</span>收第${p.k+1}期租金 ${fmt(r.rent)}${r.mg?`＋管理費 ${fmt(r.mg)}`:''}</div><div class="s">租期 ${md(p.ps)}–${md(p.pe)}，${md(payoutDateOfKey(p.key,r))} 撥款</div></div>`;
 }
 function cardPay(m,r){
   if(m.status==='empty')
@@ -147,7 +151,7 @@ function cardPay(m,r){
   if(m.status==='neg'||m.status==='zero')
     return `<div class="ev neg"><div class="t"><span class="lt">撥款</span>實撥 $0</div><div class="s">${kLabel(m.key)} 計費結算 ${fmt(m.bal)}${m.status==='neg'?'，遞延下月扣':''}</div>${bdHtml(m,r)}</div>`;
   const pend=m.pendAll.length?` − ${esc(m.pendAll.join('、'))}`:'';
-  const sub=m.standard?`${mLabel(m.key)}收到的租金扣代管費`:`${kLabel(m.key)} 計費`;
+  const sub=m.standard?`${mLabel(m.key)}收到的租金${r.mg?'及管理費':''}扣代管費`:`${kLabel(m.key)} 計費`;
   return `<div class="ev"><div class="t"><span class="lt">撥款</span>撥款 ${fmt(m.payout)}${pend}</div><div class="s">${sub}</div>${m.standard?'':bdHtml(m,r)}</div>`;
 }
 
@@ -176,7 +180,7 @@ function lastNonStd(r){let n=-1;r.months.forEach((m,i)=>{if(!m.standard)n=i;});r
 function ownerTimeline(r,name){
   const ms=r.months,lastNon=lastNonStd(r);
   const ev=[];
-  ev.push({d:r.sign,o:0,t:`簽約（房客繳${r.dep?`押金 ${fmt(r.dep)}＋`:''}第 1 期租金 ${fmt(r.rent)}）`});
+  ev.push({d:r.sign,o:0,t:`簽約（房客繳${r.dep?`押金 ${fmt(r.dep)}＋`:''}第 1 期租金 ${fmt(r.rent)}${r.mg?`＋管理費 ${fmt(r.mg)}`:''}）`});
   ev.push({d:r.start,o:1,t:`起租，租期 ${termLabel(r.term)}`});
   for(let i=0;i<=lastNon;i++){
     const m=ms[i];
@@ -192,7 +196,9 @@ function ownerTimeline(r,name){
 }
 function ownerNotes(r){
   const ms=r.months,L=['補充說明',''];
-  L.push(`・每月代管費為租金的 10%（${fmt(r.fee)}），每月撥款＝租金 ${fmt(r.rent)} − 代管費 ${fmt(r.fee)}＝${fmt(r.stable)}。`);
+  L.push(`・每月代管費為租金的 10%（${fmt(r.fee)}），每月撥款＝租金 ${fmt(r.rent)}${r.mg?`＋管理費 ${fmt(r.mg)}`:''} − 代管費 ${fmt(r.fee)}＝${fmt(r.stable)}。`);
+  if(r.mgIncl)L.push('・租金已包含管理費。');
+  else if(r.mg)L.push(`・管理費每月 ${fmt(r.mg)} 由房客連同租金繳給租寓，租寓會一併撥給您，管理費請您自行繳交管理處（管理費不收代管費）。`);
   const once=[];
   if(r.broker)once.push(`仲介服務費 ${fmt(r.broker)}`);
   ms.forEach(m=>m.extras.forEach(x=>once.push(`${x.name} ${fmt(x.amt)}`)));
@@ -327,6 +333,7 @@ function renderExtras(){
   }).join('');
 }
 function syncBroker(){
+  $('#mgmtAmtWrap').style.visibility=state.mgmtMode==='excl'?'visible':'hidden';
   const rent=num(state.rent),term=normTerm(state.term);
   const b=rent>0?fmt(brokerFor(rent,term)):'—',f=rent>0?fmt(Math.round(rent*FEE_RATE)):'—';
   $('#feeInfo').innerHTML=`<div><div class="k">仲介服務費（${term===12?'半個月':'一個月'}）</div><div class="v">${b}</div></div><div><div class="k">代管費（每月 10%）</div><div class="v">${f}</div></div>`;
@@ -372,7 +379,7 @@ on($('#addEx'),'click',()=>{
 });
 on($('#ex'),'change',e=>{
   const v=e.target.value;if(!v||!EXAMPLES[v])return;
-  state=clone(EXAMPLES[v]);fillForm();update();e.target.value='';
+  state=Object.assign(clone(BLANK),clone(EXAMPLES[v]));fillForm();update();e.target.value='';
 });
 on($('#clear'),'click',()=>{state=clone(BLANK);fillForm();update();});
 

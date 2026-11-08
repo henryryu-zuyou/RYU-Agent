@@ -79,6 +79,19 @@ export default function PayoutTimeline({ fontClass }: { fontClass: string }) {
                   <option value="owner">首期撥給屋主</option>
                 </select>
               </label>
+              <div className="grid2">
+                <label className="f">
+                  管理費
+                  <select data-k="mgmtMode">
+                    <option value="incl">包含在租金內</option>
+                    <option value="excl">不包含在租金內</option>
+                  </select>
+                </label>
+                <label className="f" id="mgmtAmtWrap">
+                  每月管理費
+                  <input data-k="mgmt" inputMode="numeric" placeholder="2000" />
+                </label>
+              </div>
               <p className="hint">首期租金固定在簽約時與押金一起收。</p>
             </fieldset>
 
