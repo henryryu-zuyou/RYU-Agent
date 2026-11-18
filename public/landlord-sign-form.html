@@ -94,7 +94,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 </header>
 
 <div class="notice">
-  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位為必填。建議先在第 1 區上傳身分證、存摺、權狀、稅單照片，系統會自動幫您填入資料，再逐項確認後按下方「送出給承辦人」。<br>
+  <b>填寫方式：</b>標示 <span class="req">*</span> 的欄位請盡量填寫；不確定的可以先空著直接送出，承辦人會再跟您確認。建議先在第 1 區上傳身分證、存摺、權狀、稅單照片，系統會自動幫您填入資料，再逐項確認後按下方「送出給承辦人」。<br>
   <b>隱私說明：</b>上傳的照片會由租寓公司的 Google 雲端硬碟辨識文字，只用來自動填寫。送出後，資料與文件只會存進租寓公司的 Google 雲端硬碟，僅承辦同仁可以查看。填寫途中關掉頁面，已填的文字會自動保留（上傳的檔案需重新選擇）。
 </div>
 
@@ -102,7 +102,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 
 <form id="form" novalidate></form>
 
-<div id="errors"><b>還有幾個必填欄位沒完成：</b><ul></ul></div>
+<div id="errors"><b>以下欄位還沒填或可能有誤（資料仍已送出，承辦人會再跟您確認）：</b><ul></ul></div>
 
 <section class="card" id="result">
   <div class="sent" id="sentMsg"></div>
@@ -303,7 +303,7 @@ function fieldHTML(f){
       <div class="rows"></div><div><button type="button" class="btn sec small" data-add="${f.k}">＋ 新增一列</button></div>
       <span class="errmsg">請至少填一筆</span></div>`;
   }
-  return `<div class="f${f.full?' full':''}" data-k="${f.k}">${lab}${ctl}${hint}<span class="errmsg">此欄必填</span></div>`;
+  return `<div class="f${f.full?' full':''}" data-k="${f.k}">${lab}${ctl}${hint}<span class="errmsg">尚未填寫</span></div>`;
 }
 form.innerHTML=S.map(s=>`<section class="card" id="${s.id}"><h2><span class="no">${s.no}</span>${esc(s.title)}</h2><p class="sub">${esc(s.sub)}</p><div class="grid">${s.fields.map(fieldHTML).join('')}</div></section>`).join('');
 
@@ -489,7 +489,7 @@ function refresh(){
     el.classList.toggle('hide',!vis);
     if(vis&&f.r){tot++;if(filled(f,d))done++;}
   }
-  $('#prog').textContent=`必填完成 ${done} / ${tot}`+(savedAt?'　✓ 已自動儲存':'');
+  $('#prog').textContent=`重要欄位已填 ${done} / ${tot}`+(savedAt?'　✓ 已自動儲存':'');
   return d;
 }
 let t,savedAt=0;function save(){clearTimeout(t);t=setTimeout(()=>{try{const d=read();delete d.uploads;d._t=Date.now();localStorage.setItem(KEY,JSON.stringify(d));savedAt=d._t;if(!sending)refresh();}catch(e){}},300);}
@@ -506,7 +506,7 @@ function validate(d){
     if(f.chk==='id'&&d[f.k]){
       const ok=twIdOk(d[f.k]);
       if(ok===false){el.classList.add('bad');el.querySelector('.errmsg').textContent='檢查碼不正確，請再確認一次';errs.push([f,`第 ${f.sec.no} 區｜身分證字號／統編檢查碼不正確`]);}
-      else el.querySelector('.errmsg').textContent='此欄必填';
+      else el.querySelector('.errmsg').textContent='尚未填寫';
     }
     if(f.t==='email'&&d[f.k]&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d[f.k])){el.classList.add('bad');el.querySelector('.errmsg').textContent='Email 格式不正確';errs.push([f,`第 ${f.sec.no} 區｜Email 格式不正確`]);}
   }
@@ -518,7 +518,7 @@ function fmt(f,d){
   if(Array.isArray(v)) return v.join('、');
   return v;
 }
-function build(d){
+function build(d,errs=[]){
   const lines=['【租寓代管簽約資料】','填寫時間：'+new Date().toLocaleString('zh-TW',{hour12:false}),''];
   for(const s of S){
     const sec=[];
@@ -532,6 +532,7 @@ function build(d){
   }
   const miss=FSLOTS.filter((o,i)=>!(UP[i]||[]).length&&!/其他/.test(o));
   if(miss.length) lines.push('※ 未在表單上傳的文件（請另用 LINE 傳送）：'+miss.join('、'));
+  if(errs.length) lines.push('※ 未填或需確認的欄位：'+errs.map(e=>e[1]).join('、'));
   return lines.join('\n');
 }
 /* ---------- 送出：資料與檔案存到租寓 Google Drive ---------- */
@@ -555,18 +556,23 @@ async function toPayload(file){
   const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob);});
   return {data,mime,filename:name};
 }
+// 未填／格式有誤的欄位只提示、不擋送出（欄位會標紅，清單顯示在送出結果上方）
 function showErrors(errs){
   const box=$('#errors');
+  if(!errs.length){box.style.display='none';return;}
   box.style.display='block';box.querySelector('ul').innerHTML=errs.map(e=>`<li>${esc(e[1])}</li>`).join('');
-  $('#result').style.display='none';
-  form.querySelector(`[data-k="${errs[0][0].k}"]`).scrollIntoView({behavior:'smooth',block:'center'});
+}
+// 發 Google Chat 通知；keepalive 讓屋主馬上關頁面也送得出去
+function notify(body){
+  try{
+    fetch('/api/sign-form-notify',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(()=>{});
+  }catch(e){}
 }
 $('#gen').onclick=async()=>{
   if(sending)return;
   const d=refresh(),errs=validate(d);
-  if(errs.length) return showErrors(errs);
-  $('#errors').style.display='none';
-  const summary=build(d); $('#out').value=summary;
+  const summary=build(d,errs); $('#out').value=summary;
+  const base={name:d.name,phone:d.phone,address:[d.city,d.dist,d.addr].filter(Boolean).join('')};
   if(sentOnce&&!confirm('這份資料已經送出過，確定要再送一次嗎？'))return;
   const btn=$('#gen'),prog=$('#prog'); sending=true; btn.disabled=true;
   const jobs=FSLOTS.flatMap((o,i)=>(UP[i]||[]).map(f=>[o,f]));
@@ -579,14 +585,16 @@ $('#gen').onclick=async()=>{
       try{ await gas({action:'file',folderId:init.folderId,label:label.replace(/（.*?）/g,''),...(await toPayload(f))}); }
       catch(e){ fails.push(f.name); }
     }
-    fetch('/api/sign-form-notify',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:d.name,address:[d.city,d.dist,d.addr].filter(Boolean).join(''),fileCount:jobs.length-fails.length,folderUrl:init.folderUrl})}).catch(()=>{});
+    notify({...base,fileCount:jobs.length-fails.length,failCount:fails.length,folderUrl:init.folderUrl,
+      missing:errs.map(e=>e[1].replace(/^第 \d+ 區｜/,'')).join('、')});
     sentOnce=true;
     msg=`<b>已送出 ✓</b> 承辦人已收到您的資料${jobs.length?`與 ${jobs.length-fails.length} 個檔案`:''}，謝謝您！`+
       (fails.length?`<br>以下檔案上傳失敗，請改用 LINE 傳給承辦人：${fails.map(esc).join('、')}`:'');
   }catch(e){
-    msg=`<b>送出失敗</b>（${esc(e.message||e)}）。請稍後再試，或按下方「複製內容」貼到 LINE 傳給承辦人，文件也請一併用 LINE 傳送。`;
+    notify({...base,status:'failed',error:String(e&&e.message||e)});
+    msg=`<b>送出失敗</b>（${esc(e.message||e)}）。已通知承辦人，會再與您聯絡。您也可以稍後再按一次送出，或按下方「複製內容」貼到 LINE 傳給承辦人，文件也請一併用 LINE 傳送。`;
   }finally{ sending=false; btn.disabled=false; refresh(); }
+  showErrors(errs);
   $('#sentMsg').innerHTML=msg; $('#result').style.display='block';
   $('#result').scrollIntoView({behavior:'smooth'});
 };
