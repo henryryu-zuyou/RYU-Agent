@@ -116,6 +116,7 @@ export default function Home() {
           icon: "📅",
           title: "代管撥款時間軸",
           desc: "輸入契約條件，算出收租與撥款時間，產生給屋主的說明",
+          isPublic: true,
         },
       ],
     },
