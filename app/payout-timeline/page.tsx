@@ -3,7 +3,7 @@ import { Noto_Sans_TC } from "next/font/google";
 import PayoutTimeline from "./PayoutTimeline";
 import "./payout-timeline.css";
 
-// /payout-timeline：代管撥款時間軸（內部工具，middleware 保護需登入）。
+// /payout-timeline：代管撥款時間軸（公開頁，免登入；純前端試算、不含資料）。
 // 由原本的獨立 HTML 搬過來：計算與畫面邏輯在 mount.js（原樣保留），
 // 樣式在 payout-timeline.css（全部包在 .pt 底下，不影響其他頁）。
 const notoSansTC = Noto_Sans_TC({
